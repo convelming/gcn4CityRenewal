@@ -8,6 +8,7 @@
 所有数据基于OSM的路网结构，涉及到出生产生和吸引，需要OD矩阵或者OD对通过处理后（如小区层面的集计）作为样本数据。
 在简化的情况下，只使用OSM数据提取每个节点的数据
 ## **步骤 1：定义不规则区域子图**
+- 使用/src/visualization/drawPolygonOnOsm.html 在osm地图上绘制获取目标区域的坐标信息，双击结束绘制；
 
 ## **步骤 2：在整个交通网络中找到相似的区域**
 
@@ -27,23 +28,6 @@
 - **拓扑结构**：道路连接性、节点度分布、路段长度
 - **空间属性**：POI（兴趣点）、AOI（兴趣区域）、道路类型、流量数据
 - **功能属性**：土地利用、商业、居住、工业等
-
-### **提取子图**
-```python
-import networkx as nx
-
-target_subgraph = G.subgraph(target_subgraph_nodes)
-```
-如果目标子图是一个**多边形范围**（Shapefile 或 GeoJSON），可以用 `geopandas` 进行空间过滤：
-```python
-import geopandas as gpd
-from shapely.geometry import Point
-
-gdf_nodes = gpd.GeoDataFrame(G.nodes(data=True), geometry=[Point(d['x'], d['y']) for _, d in G.nodes(data=True)])
-polygon = gpd.read_file('target_area.geojson').geometry.iloc[0]
-target_subgraph_nodes = gdf_nodes[gdf_nodes.geometry.within(polygon)].index
-target_subgraph = G.subgraph(target_subgraph_nodes)
-```
 
 ## **步骤 2：在整个交通网络中找到相似的区域**
 ### **方法 1：滑动窗口搜索相似子图**

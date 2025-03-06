@@ -2,7 +2,7 @@ import networkx as nx
 import numpy as np
 
 from src.subGraphSearh.similarityCals import cal_graph_degree_distribution, cal_KL_divergence, cal_cluster_coe_diff, \
-    cal_shortest_path_length_ratio, cal_graph_cosin_simularity
+    cal_shortest_path_length_ratio, cal_graph_cosin_simularity, cal_edge_similarity
 
 G1 = nx.DiGraph()
 G1.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 2), (2, 5)])
@@ -37,3 +37,22 @@ if __name__ == "__main__":
 
     print(f"最大池化匹配相似度: {sim_max_pooling:.4f}")
     print(f"最优传输匹配相似度: {sim_global_opt:.4f}")
+
+# 示例测试
+    G1 = nx.DiGraph()
+    G2 = nx.DiGraph()
+
+    # 添加边及 24 维流量数据
+    G1.add_edge(1, 2, volumes=np.random.rand(24) * 100)
+    G1.add_edge(2, 3, volumes=np.random.rand(24) * 100)
+    G1.add_edge(3, 4, volumes=np.random.rand(24) * 100)
+
+    G2.add_edge(4, 5, volumes=np.random.rand(24) * 100)
+    G2.add_edge(5, 6, volumes=np.random.rand(24) * 100)
+    G2.add_edge(6, 7, volumes=np.random.rand(24) * 100)
+
+    sim_max_pooling = cal_edge_similarity(G1, G2, attr_key="volumes", match_strategy="max_pooling")
+    sim_global_opt = cal_edge_similarity(G1, G2, attr_key="volumes", match_strategy="global_opt")
+
+    print(f"边流量相似度（最大池化匹配）: {sim_max_pooling:.4f}")
+    print(f"边流量相似度（最优匹配）: {sim_global_opt:.4f}")

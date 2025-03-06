@@ -217,7 +217,7 @@ def cal_graph_cosin_simularity(X_a, X_b, sim_type="max_pooling"):
     return S_node
 
 
-def cal_edge_similarity(graph_1, graph_2, attr_key="volumes"):
+def cal_edge_similarity(graph_1, graph_2, attr_key="volumes", match_strategy="max_pooling"):
     """
     计算两个图边的属性的相似性
     步骤1：边属性对齐, 边的数量分别为m，n
@@ -231,25 +231,44 @@ def cal_edge_similarity(graph_1, graph_2, attr_key="volumes"):
     :param attr_key: str - 需要计算相似度的边属性（默认 'volumes'）
     :return: float - 余弦相似度（范围 [0,1]，越接近1表示越相似）
     """
+    # 获取两个图的边集合
+    edges_1 = list(graph_1.edges(data=True))
+    edges_2 = list(graph_2.edges(data=True))
 
+    # 提取所有边的属性值（如果没有流量属性，则默认为 0 向量）
+    edge_features_1 = np.array([data.get(attr_key, np.zeros(24)) for _, _, data in edges_1])
+    edge_features_2 = np.array([data.get(attr_key, np.zeros(24)) for _, _, data in edges_2])
 
+    # 处理 NaN 值（用均值填充）
+    mean_1 = np.nanmean(edge_features_1, axis=0) if np.isnan(edge_features_1).any() else 0
+    mean_2 = np.nanmean(edge_features_2, axis=0) if np.isnan(edge_features_2).any() else 0
+    edge_features_1 = np.nan_to_num(edge_features_1, nan=mean_1)
+    edge_features_2 = np.nan_to_num(edge_features_2, nan=mean_2)
 
-# 示例测试
-if __name__ == "__main__":
-    G1 = nx.DiGraph()
-    G2 = nx.DiGraph()
+    # 计算余弦相似度矩阵 (m × n)
+    cos_sim_matrix = cosine_similarity(edge_features_1, edge_features_2)
 
-    # 添加边及流量属性
-    G1.add_edge(1, 2, traffic=100)
-    G1.add_edge(2, 3, traffic=200)
-    G1.add_edge(3, 4, traffic=150)
+    # 选择匹配策略
+    if match_strategy == "full_conn_avg":
+        # 适用于边数量相同且对齐的情况
+        if edge_features_1.shape[0] != edge_features_2.shape[0]:
+            raise ValueError("full_conn_avg 适用于两个图的边数相同的情况")
+        similarity = np.mean(np.diag(cos_sim_matrix))
 
-    G2.add_edge(4, 5, traffic=110)
-    G2.add_edge(5, 6, traffic=190)
-    G2.add_edge(6, 7, traffic=160)
+    elif match_strategy == "max_pooling":
+        # 适用于边数量不同的情况，每条边找最相似的匹配
+        similarity = np.mean(np.max(cos_sim_matrix, axis=1))
 
-    sim = cal_edge_similarity(G1, G2, attr_key="traffic")
-    print(f"边属性相似度（余弦相似度）: {sim:.4f}")
+    elif match_strategy == "global_opt":
+        # 适用于全局最优匹配，使用匈牙利算法
+        row_ind, col_ind = linear_sum_assignment(-cos_sim_matrix)  # 负号表示最大化相似度
+        similarity = cos_sim_matrix[row_ind, col_ind].mean()
+
+    else:
+        raise ValueError("match_strategy 只能是 'full_conn_avg', 'max_pooling' 或 'global_opt'")
+
+    return similarity
+
 
 # 1-2-2 边属性匹配率：
     #

@@ -124,12 +124,12 @@ print("id;x;y")
 # for node in sub_nodes_ids:
 #     print("t;"+str(G.nodes.get(node)['x'])+";"+str(G.nodes.get(node)['y']))
 
-def compute_level_sizes(graph, start_node):
-    if not graph or start_node not in graph:
+def get_downstream_depth_info(graph, node_id):
+    if not graph or node_id not in graph:
         return []
     visited = set()
-    queue = deque([start_node])
-    visited.add(start_node)
+    queue = deque([node_id])
+    visited.add(node_id)
     level_sizes = []
     while queue:
         level_size = len(queue)
@@ -142,6 +142,30 @@ def compute_level_sizes(graph, start_node):
                     queue.append(neighbor)
     return level_sizes
 
-depth_info = compute_level_sizes(G, sorted_items[0][0])
+
+
+def reverse_graph(G):
+    """
+    Reverse all the edges of a directed graph.
+
+    Parameters:
+        G (networkx.DiGraph): The original directed graph.
+
+    Returns:
+        reversed_G (networkx.DiGraph): A new graph with all edge directions reversed.
+    """
+    reversed_G = nx.DiGraph()
+    reversed_G.add_nodes_from(G.nodes(data=True))
+
+    for u, v, data in G.edges(data=True):
+        reversed_G.add_edge(v, u, **data)
+
+    return reversed_G
+def get_bi_dir_depth_info(G, node_id):
+    reversed_G = reverse_graph(G)
+    return (get_downstream_depth_info(G,node_id),get_downstream_depth_info(reversed_G,node_id))
+
+
+depth_info = get_bi_dir_depth_info(G, sorted_items[0][0])
 
 print("done!")

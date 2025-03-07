@@ -13,13 +13,13 @@ Then definition of total evaluation between two sub-graphs is given, and it is b
 1-2-2 边属性匹配率：
 
 
-1-3 动态行为相似性（可选）：
+1-3 动态行为相似性（暂时不考虑）：
 
 1-3-1 信息传播模式对比（使用SIR模型参数）
 1-3-2 时序交互频率分布
 
 2. 相似度聚合函数
-
+通过加权平均的方式计算
 Similarity=∏ sigma(w_k*s_k)
 '''
 import math
@@ -168,7 +168,7 @@ def cal_cluster_coe_diff(graph_1, graph_2):
     return abs(C_graph1 - C_graph2)
 
 
-def cal_graph_cosin_simularity(X_a, X_b, sim_type="max_pooling"):
+def cal_graph_cosine_similarity(graph_1, graph_2, attr_key='features', sim_type="max_pooling"):
     """
     图节点特征余弦相似度矩阵：
     对于两个子图graph_1(m个节点), graph_2(n个节点)其节点特征矩阵分别为X_a(mxd), X_b(nxd)(d为特征维度)
@@ -191,6 +191,10 @@ def cal_graph_cosin_simularity(X_a, X_b, sim_type="max_pooling"):
     :return:
     结果接近1表示两图节点特征匹配良好
     """
+    # 获取图节点特征
+    X_a = np.array([graph_1.nodes[i][attr_key].flatten() for i in graph_1.nodes])
+    X_b = np.array([graph_2.nodes[i][attr_key].flatten() for i in graph_2.nodes])
+
     # 归一化节点特征（L2 归一化）
     X_a_normalized = X_a / np.linalg.norm(X_a, axis=1, keepdims=True)
     X_b_normalized = X_b / np.linalg.norm(X_b, axis=1, keepdims=True)
@@ -219,7 +223,7 @@ def cal_graph_cosin_simularity(X_a, X_b, sim_type="max_pooling"):
 
 def cal_edge_similarity(graph_1, graph_2, attr_key="volumes", match_strategy="max_pooling"):
     """
-    计算两个图边的属性的相似性
+    计算两个图边的属性的相似性,此方法不考虑节点特征和图结构的
     步骤1：边属性对齐, 边的数量分别为m，n
     图为有向图：需匹配边的方向（即(u, v)与(p, q)严格对应）
     步骤2：属性匹配计算 边edge_i的属性为 nx1的属性，通常为24小时流量，即n=24
@@ -270,10 +274,33 @@ def cal_edge_similarity(graph_1, graph_2, attr_key="volumes", match_strategy="ma
     return similarity
 
 
-# 1-2-2 边属性匹配率：
-    #
-    #
+def cal_total_weighted_similarity(graph_1, graph_2, weights={'kl': 0.2, 'sp': 0.2, 'cluster': 0.2, 'node': 0.2, 'edge': 0.2},
+                                  node_attr_key="features", edge_attr_key='volumes', show=False):
 
+    kl_div = cal_KL_divergence(graph_1, graph_2)
+    sp_ratio = cal_shortest_path_length_ratio(graph_1, graph_2)
+    cluster_diff = cal_cluster_coe_diff(graph_1, graph_2)
+
+    node_similarity = cal_graph_cosine_similarity(graph_1, graph_2, attr_key=node_attr_key)
+    edge_similarity = cal_edge_similarity(graph_1, graph_2, attr_key=edge_attr_key)
+
+
+    similarity = (weights['kl'] * kl_div +
+                  weights['sp'] * sp_ratio +
+                  weights['cluster'] * cluster_diff +
+                  weights['node'] * node_similarity +
+                  weights['edge'] * edge_similarity)
+
+    if show:
+        print(
+            f"KL divergence: {kl_div:.4f},\n"
+            f" short path length Ratio: {sp_ratio:.4f},\n"
+            f" Cluster Diff: {cluster_diff:.4f},\n"
+            f" Node Similarity: {node_similarity:.4f},\n"
+            f" Edge Similarity: {edge_similarity:.4f}")
+        print(f"Final Similarity Score: {similarity:.4f}")
+
+    return similarity
 
 # 1-3 动态行为相似性（可选）：
 #

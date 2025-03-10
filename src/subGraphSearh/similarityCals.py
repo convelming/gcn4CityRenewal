@@ -128,7 +128,7 @@ def cal_shortest_path_length_ratio(graph_1, graph_2):
 
     若结果接近 1，说明两者连通性相似；显著偏离 1 则表明结构差异。
 
-    针对这个问题需要将这个比率归一化极倔0.9和1.1谁的连通性更相似，采用1/(1+abs(log(ASPL_ratio)))这个归一化方法的优点：
+    针对这个问题需要将这个比率归一化来解决0.9和1.1谁的连通性更相似，采用1/(1+abs(log(ASPL_ratio)))这个归一化方法的优点：
     对称性：ASPL 比值大于 1 和小于 1 都会被同等对待。
     范围约束：归一化值始终在 (0, 1] 之间。
     可解释性：当比值为 1 时，归一化值最大为 1；比值越偏离 1，归一化值越小。
@@ -168,7 +168,7 @@ def cal_cluster_coe_diff(graph_1, graph_2):
     return abs(C_graph1 - C_graph2)
 
 
-def cal_graph_cosine_similarity(graph_1, graph_2, attr_key='features', sim_type="max_pooling"):
+def cal_graph_cosine_similarity(graph_1, graph_2, attr_key = "features", sim_type = "max_pooling"):
     """
     图节点特征余弦相似度矩阵：
     对于两个子图graph_1(m个节点), graph_2(n个节点)其节点特征矩阵分别为X_a(mxd), X_b(nxd)(d为特征维度)
@@ -276,7 +276,27 @@ def cal_edge_similarity(graph_1, graph_2, attr_key="volumes", match_strategy="ma
 
 def cal_total_weighted_similarity(graph_1, graph_2, weights={'kl': 0.2, 'sp': 0.2, 'cluster': 0.2, 'node': 0.2, 'edge': 0.2},
                                   node_attr_key="features", edge_attr_key='volumes', show=False):
-
+    """
+    将以下相似度指标通过加权的方式累加后计算得到最终的相似度
+    1结构相似性：
+      1-1 度分布KL散度(kl)：DKL(Pa∥Pb)=∑ d log (Pa(d)Pb(d))
+      1-2 路径特征(sp)：平均最短路径长度比
+      1-3 聚类系数差异(cluster)：
+    2 属性相似性：
+      2-1 节点特征余弦相似度矩阵(node)：
+      2-2 边属性匹配率(edge)：
+    KL 值越小 表示两个图的的节点分布越接近，即评估时越小越好 通过kl_weight *(1-kl)处理
+    sp 经过归一化值始终在 (0, 1] 之间，越接近1相似度越高，简化后为越大越好； 通过sp_weight *（1-sp）处理
+    cluster 是两者graph相应值的差，为越小越好； 通过weight_cluster * (-cluster) 处理
+    node 和edge的基本为矩阵的余弦相似度，范围 [0,1]，越接近1表示越相似，不做特殊处理
+    :param graph_1:
+    :param graph_2:
+    :param weights:
+    :param node_attr_key:
+    :param edge_attr_key:
+    :param show:
+    :return: similarity
+    """
     kl_div = cal_KL_divergence(graph_1, graph_2)
     sp_ratio = cal_shortest_path_length_ratio(graph_1, graph_2)
     cluster_diff = cal_cluster_coe_diff(graph_1, graph_2)
@@ -285,17 +305,17 @@ def cal_total_weighted_similarity(graph_1, graph_2, weights={'kl': 0.2, 'sp': 0.
     edge_similarity = cal_edge_similarity(graph_1, graph_2, attr_key=edge_attr_key)
 
 
-    similarity = (weights['kl'] * kl_div +
-                  weights['sp'] * sp_ratio +
-                  weights['cluster'] * cluster_diff +
-                  weights['node'] * node_similarity +
-                  weights['edge'] * edge_similarity)
+    similarity = (weights['kl'] *(1-kl_div) +
+                  weights['sp'] * (1-sp_ratio) +
+                  weights['cluster'] * (-cluster_diff) +
+                  weights['node'] * (node_similarity) +
+                  weights['edge'] * (edge_similarity))
 
     if show:
         print(
-            f"KL divergence: {kl_div:.4f},\n"
-            f" short path length Ratio: {sp_ratio:.4f},\n"
-            f" Cluster Diff: {cluster_diff:.4f},\n"
+            f"KL divergence: {(1-kl_div):.4f},\n"
+            f" short path length Ratio: {(1-sp_ratio):.4f},\n"
+            f" Cluster Diff: {(-cluster_diff):.4f},\n"
             f" Node Similarity: {node_similarity:.4f},\n"
             f" Edge Similarity: {edge_similarity:.4f}")
         print(f"Final Similarity Score: {similarity:.4f}")

@@ -1,58 +1,40 @@
 import networkx as nx
 import numpy as np
+import osmnx as ox
 
 from src.subGraphSearh.similarityCals import cal_graph_degree_distribution, cal_KL_divergence, cal_cluster_coe_diff, \
-    cal_shortest_path_length_ratio, cal_graph_cosin_simularity, cal_edge_similarity
-
-G1 = nx.DiGraph()
-G1.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 2), (2, 5)])
-
-G2 = nx.DiGraph()
-G2.add_edges_from([(30, 20), (30, 60),(20, 30), (30, 40), (40, 20), (20, 40),  (20, 50), (20, 10)])
-
-# 计算 KL 散度
-kl_value = cal_KL_divergence(G1, G2, in_weight=0.5)
-
-graph_degrees1 = cal_graph_degree_distribution(G1, direction="in")
-graph_degrees2 = cal_graph_degree_distribution(G2, direction="out")
-print(graph_degrees1)
-print(graph_degrees2)
-print(f"KL 散度: {kl_value:.4f}")
-
-cluster_coe_diff = cal_cluster_coe_diff(G1, G2)
-print(f"cluster_coe_diff:{cluster_coe_diff:.2f}")
-splr = cal_shortest_path_length_ratio(G1, G2)
-print(f"splr:{splr:.2f}")
-
-
+    cal_shortest_path_length_ratio, cal_edge_similarity, \
+    cal_total_weighted_similarity, cal_graph_cosine_similarity
+from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_bi_dir_depth_info, \
+    get_bi_avg_graph_depth, bidirectional_search
 
 # 示例测试
 if __name__ == "__main__":
-    np.random.seed(42)
-    X_a = np.random.rand(4, 5)  # 子图1有4个节点，每个节点5维特征
-    X_b = np.random.rand(6, 5)  # 子图2有6个节点，每个节点5维特征
+    # load the osm netowrk in wgs 84
+    gr = ox.load_graphml("../../data/test_hp_graph.graphml")
 
-    sim_max_pooling = cal_graph_cosin_simularity(X_a, X_b, "max_pooling")
-    sim_global_opt = cal_graph_cosin_simularity(X_a, X_b, "global_opt")
+    poly_coords = [(113.465218, 23.131286),
+    (113.464738, 23.116090),
+    (113.479289, 23.115122),
+    (113.485907, 23.115874),
+    (113.484153, 23.119977),
+    (113.487303, 23.122728),
+    (113.486904, 23.126671),
+    (113.480013, 23.129296),
+    (113.475097, 23.134175),
+    (113.465218, 23.131286),]
+    # # 获取多边形内的子图
+    sub_g = getSubGraphInPoly(gr, poly_coords)
+    sub_g_central_node = get_graph_central_node(sub_g)
+    # ox.save_graph_geopackage(sub_g, "/users/convel/desktop/test_hp_sub_graph.gpkg")
+    sub_g_avg_depth = get_bi_avg_graph_depth(sub_g, sub_g_central_node)
+    # sub_nodes_ids = bidirectional_search(G, sorted_items[0][0], 20)
+    sub_g_1 = bidirectional_search(gr, 6369608427, sub_g_avg_depth)
+    ox.save_graph_geopackage(gr.subgraph(sub_g_1), "/users/convel/desktop/sub_g_1.gpkg")
+    print("done!")
 
-    print(f"最大池化匹配相似度: {sim_max_pooling:.4f}")
-    print(f"最优传输匹配相似度: {sim_global_opt:.4f}")
 
-# 示例测试
-    G1 = nx.DiGraph()
-    G2 = nx.DiGraph()
 
-    # 添加边及 24 维流量数据
-    G1.add_edge(1, 2, volumes=np.random.rand(24) * 100)
-    G1.add_edge(2, 3, volumes=np.random.rand(24) * 100)
-    G1.add_edge(3, 4, volumes=np.random.rand(24) * 100)
 
-    G2.add_edge(4, 5, volumes=np.random.rand(24) * 100)
-    G2.add_edge(5, 6, volumes=np.random.rand(24) * 100)
-    G2.add_edge(6, 7, volumes=np.random.rand(24) * 100)
 
-    sim_max_pooling = cal_edge_similarity(G1, G2, attr_key="volumes", match_strategy="max_pooling")
-    sim_global_opt = cal_edge_similarity(G1, G2, attr_key="volumes", match_strategy="global_opt")
 
-    print(f"边流量相似度（最大池化匹配）: {sim_max_pooling:.4f}")
-    print(f"边流量相似度（最优匹配）: {sim_global_opt:.4f}")

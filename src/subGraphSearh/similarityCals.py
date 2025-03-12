@@ -148,7 +148,7 @@ def cal_shortest_path_length_ratio(graph_1, graph_2):
 def cal_cluster_coe_diff(graph_1, graph_2):
     """
     计算 聚类系数差异（Clustering Coefficient Difference）
-
+    注意此评价指标只能针对无向图！！！！
     平均局部聚类系数：C_avg = 1/N * Sum C_i
     N 为节点数量
     C_i = 节点i的邻居间实际边数/邻居间可能的边数
@@ -162,8 +162,8 @@ def cal_cluster_coe_diff(graph_1, graph_2):
     :return: |C_graph1-C_graph2|
     """
 
-    C_graph1 = nx.average_clustering(graph_1.to_undirected())
-    C_graph2 = nx.average_clustering(graph_2.to_undirected())
+    C_graph1 = nx.average_clustering(nx.Graph(graph_1))
+    C_graph2 = nx.average_clustering(nx.Graph(graph_2))
 
     return abs(C_graph1 - C_graph2)
 
@@ -188,12 +188,15 @@ def cal_graph_cosine_similarity(graph_1, graph_2, attr_key = "features", sim_typ
         S_node = cos_sim_matrix[row_ind, col_ind].mean()
     :param graph_1:
     :param graph_2:
+    :param attr_key: because
+    :param sim_type:
     :return:
     结果接近1表示两图节点特征匹配良好
     """
     # 获取图节点特征
-    X_a = np.array([graph_1.nodes[i][attr_key].flatten() for i in graph_1.nodes])
-    X_b = np.array([graph_2.nodes[i][attr_key].flatten() for i in graph_2.nodes])
+    for node, data in gr.nodes(data=True):
+    X_a = np.array([data[attr_key].split(",").flatten() for tmp_node,data in graph_1.nodes(data=True)])
+    X_b = np.array([graph_2.nodes[i][attr_key].split(",").flatten() for i in graph_2.nodes])
 
     # 归一化节点特征（L2 归一化）
     X_a_normalized = X_a / np.linalg.norm(X_a, axis=1, keepdims=True)

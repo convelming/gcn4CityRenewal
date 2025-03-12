@@ -206,7 +206,7 @@ def get_graph_bounding_box(graph):
     """
 
     pass
-def get_adj_subGraphs(graph, graph_node_lon, graph_node_lat, center_node_coord,search_step = 0.005):
+def get_adj_subGraphs(graph,center_node_coord, graph_node_lon='x', graph_node_lat='y', search_step = 0.005):
     """
     use KDTree to get the nearest node on the gpah
     :param graph: networkX graph

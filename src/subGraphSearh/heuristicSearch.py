@@ -26,13 +26,13 @@
 import heapq
 import random
 from heapq import heappush, heappop
-
+import osmnx as ox
 from src.subGraphSearh.similarityCals import cal_total_weighted_similarity
 from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_bi_dir_depth_info, \
     get_bi_avg_graph_depth, bidirectional_search, get_adj_subGraphs
 
 
-def heuristic_search(graph, target_subgraph, num_results, graph_node_lon, graph_node_lat, search_step='0.005',
+def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', graph_node_lat='y', search_step='0.005',
                      search_strategy={'random': 0.2, 'top_adj': 0.4}, max_iter=50, error = 0.00001):
     """
     随机选取初始节点并生成子图
@@ -63,14 +63,19 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon, graph_
     # get target_subgraph depth
     sub_g_avg_depth = get_bi_avg_graph_depth(target_subgraph, get_graph_central_node(target_subgraph))
     # sub_g_1 = bidirectional_search(gr, 6369608427, sub_g_avg_depth)
-    initial_nodes = random.sample(list(graph.nodes), min(20, num_results))
+    initial_nodes = random.sample(list(graph.nodes), min(len(graph.nodes), num_results))
     # 获取初始子图集
     for node in initial_nodes:
-        candidate_subgraph = bidirectional_search(graph, node, sub_g_avg_depth)
-        if not candidate_subgraph or visited_nodes & set(candidate_subgraph.nodes):
-            continue # 会导致子图的数量达不到要求
-        similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
-        heappush(candidate_subgraphs, (similarity_score, candidate_subgraph))
+        candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
+        while any(candidate_subgraph_node_id in visited_nodes for candidate_subgraph_node_id in candidate_subgraph_node_list):
+            node = random.sample(list(graph.nodes), 1)[0]
+            candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
+            # 会导致子图的数量达不到要求
+        candidate_subgraph = graph.subgraph(candidate_subgraph_node_list).copy()
+        ox.save_graph_geopackage(candidate_subgraph, f"/users/convel/desktop/test_hp_rnd_graph{node}.gpkg")
+
+        tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
+        heappush(candidate_subgraphs, (tmp_similarity_score, candidate_subgraph))
     iTerminate = 0
     tmp_error = 9999.99
     # 迭代搜索

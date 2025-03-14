@@ -194,9 +194,8 @@ def cal_graph_cosine_similarity(graph_1, graph_2, attr_key = "features", sim_typ
     结果接近1表示两图节点特征匹配良好
     """
     # 获取图节点特征
-    for node, data in gr.nodes(data=True):
-    X_a = np.array([data[attr_key].split(",").flatten() for tmp_node,data in graph_1.nodes(data=True)])
-    X_b = np.array([graph_2.nodes[i][attr_key].split(",").flatten() for i in graph_2.nodes])
+    X_a = np.array([data[attr_key] for tmp_node, data in graph_1.nodes(data=True)])#np.array([data for tmp_node, data in graph_1.nodes(data=True)])
+    X_b = np.array([data[attr_key] for tmp_node, data in graph_2.nodes(data=True)])
 
     # 归一化节点特征（L2 归一化）
     X_a_normalized = X_a / np.linalg.norm(X_a, axis=1, keepdims=True)

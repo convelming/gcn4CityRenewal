@@ -27,6 +27,7 @@ import heapq
 import random
 from heapq import heappush, heappop
 import osmnx as ox
+
 from src.subGraphSearh.similarityCals import cal_total_weighted_similarity
 from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_bi_dir_depth_info, \
     get_bi_avg_graph_depth, bidirectional_search, get_adj_subGraphs
@@ -65,6 +66,7 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
     # sub_g_1 = bidirectional_search(gr, 6369608427, sub_g_avg_depth)
     initial_nodes = random.sample(list(graph.nodes), min(len(graph.nodes), num_results))
     # 获取初始子图集
+    sub_candi_graph_id = 0
     for node in initial_nodes:
         candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
         while any(candidate_subgraph_node_id in visited_nodes for candidate_subgraph_node_id in candidate_subgraph_node_list):
@@ -75,12 +77,14 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
         ox.save_graph_geopackage(candidate_subgraph, f"/users/convel/desktop/test_hp_rnd_graph{node}.gpkg")
 
         tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
-        heappush(candidate_subgraphs, (tmp_similarity_score, candidate_subgraph))
+        heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph))
+        sub_candi_graph_id += 1
     iTerminate = 0
     tmp_error = 9999.99
     # 迭代搜索
     for i in range(max_iter):
         tmp_best = sorted(candidate_subgraphs)[0]
+        sub_candi_graph_id = 0
         # 在指定排名靠前的元素生成子图，添加到candidate_subgraphs里
         for tmp_similar_subgraph in heapq.nlargest(num_results*search_strategy["top_adj"], candidate_subgraphs):
             # get tmp subgraph centroid then get coords
@@ -92,7 +96,8 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
             tmp_subgraphs = get_adj_subGraphs(graph, graph_node_lon, graph_node_lat, tmp_coord, search_step)
             for tmp_subgraph in tmp_subgraphs:
                 tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, tmp_subgraph)
-                heappush(tmp_subgraph, (tmp_similarity_score, candidate_subgraph))
+                heappush(tmp_subgraph, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph))
+                sub_candi_graph_id += 1
 
         # 检查candidate_subgraphs, 如果数量不够，则采用random的方式补齐；若多了则删除掉排名靠后的元素
         while len(candidate_subgraphs)<num_results:
@@ -105,7 +110,8 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
                 if len(candidate_subgraphs) > num_results:
                     heapq.heappop(candidate_subgraphs)
                 else:
-                    heappush(candidate_subgraphs, (similarity_score, candidate_subgraph))
+                    heappush(candidate_subgraphs, (similarity_score, sub_candi_graph_id, candidate_subgraph))
+                    sub_candi_graph_id += 1
         # 计算终止条件
         tmp_error = abs(tmp_best-sorted(candidate_subgraphs)[0])
         if tmp_error < error:

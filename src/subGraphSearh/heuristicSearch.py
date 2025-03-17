@@ -88,9 +88,9 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
         # 在指定排名靠前的元素生成子图，添加到candidate_subgraphs里
         for tmp_similar_subgraph in heapq.nlargest(int(num_results*search_strategy["top_adj"]), candidate_subgraphs): # bug_fix : 返回前n个需要int
             # get tmp subgraph centroid then get coords
-            tmp_central_node = get_graph_central_node(tmp_similar_subgraph)
-            tmp_coord = (graph.nodes.get(tmp_central_node).get_node_attributes(graph_node_lon),
-                         graph.nodes.get(tmp_central_node).get_node_attributes(graph_node_lat))
+            tmp_central_node = get_graph_central_node(tmp_similar_subgraph[2]) # bug_fix : 加了[2]，tmp_similar_subgraph是个tuple,(权重，排名，元素)的格式
+            tmp_coord = (graph.nodes.get(tmp_central_node)[graph_node_lon],
+                         graph.nodes.get(tmp_central_node)[graph_node_lat]) # bug_fix : 将.get_node_attributes(graph_node_lon)更改为[graph_node_lon]，lat同样
             # calculate four coords and then get closest nodes of these four
             #
             tmp_subgraphs = get_adj_subGraphs(graph, graph_node_lon, graph_node_lat, tmp_coord, search_step)

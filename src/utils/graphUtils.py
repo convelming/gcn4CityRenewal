@@ -3,7 +3,7 @@ import osmnx as ox
 from scipy.spatial import KDTree
 from shapely.geometry import Polygon, Point
 from collections import deque
-
+import numpy as np
 
 def getSubGraphInPoly(G, polygon_coords):
     """
@@ -222,7 +222,7 @@ def get_adj_subGraphs(graph,center_node_coord, graph_node_lon='x', graph_node_la
     node_list = list(pos_Xs.keys())  # 节点编号
     coord_lon_list = list(pos_Xs.values())  # 坐标列表
     coord_lat_list = list(nx.get_node_attributes(graph, graph_node_lat).values())  # 坐标列表
-    tree = KDTree(zip(coord_lon_list, coord_lat_list))
+    tree = KDTree(np.array(list(zip(coord_lon_list, coord_lat_list)))) # bug_fix : 增加np.array(list())
 
     # 查找最近节点
     _, nearest_idx_0 = tree.query((center_node_coord[0]-search_step,center_node_coord[1]-search_step))  # 返回最邻近点的索引

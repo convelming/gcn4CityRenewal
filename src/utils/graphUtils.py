@@ -73,7 +73,7 @@ def bidirectional_search(G, start_node, max_depth):
     while queue:
         current_node, depth = queue.popleft()
 
-        if depth == max_depth:
+        if depth >= max_depth:
             continue
 
         # Explore upstream nodes (predecessors)

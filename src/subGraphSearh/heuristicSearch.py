@@ -86,7 +86,7 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
         tmp_best = sorted(candidate_subgraphs)[0]
         sub_candi_graph_id = 0
         # 在指定排名靠前的元素生成子图，添加到candidate_subgraphs里
-        for tmp_similar_subgraph in heapq.nlargest(num_results*search_strategy["top_adj"], candidate_subgraphs):
+        for tmp_similar_subgraph in heapq.nlargest(int(num_results*search_strategy["top_adj"]), candidate_subgraphs): # bug_fix : 返回前n个需要int
             # get tmp subgraph centroid then get coords
             tmp_central_node = get_graph_central_node(tmp_similar_subgraph)
             tmp_coord = (graph.nodes.get(tmp_central_node).get_node_attributes(graph_node_lon),

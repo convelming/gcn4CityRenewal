@@ -217,7 +217,7 @@ def get_adj_subGraphs(graph,center_node_coord, graph_node_lon='x', graph_node_la
     """
     # 获取节点坐标
     pos_Xs = nx.get_node_attributes(graph, graph_node_lon)
-
+    search_step = float(search_step) # bug_fix : 限定search_step的类型为float
     # 构建 KDTree
     node_list = list(pos_Xs.keys())  # 节点编号
     coord_lon_list = list(pos_Xs.values())  # 坐标列表

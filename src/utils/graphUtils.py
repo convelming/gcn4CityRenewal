@@ -73,7 +73,7 @@ def bidirectional_search(G, start_node, max_depth):
     while queue:
         current_node, depth = queue.popleft()
 
-        if depth == max_depth:
+        if depth >= max_depth:
             continue
 
         # Explore upstream nodes (predecessors)
@@ -193,9 +193,9 @@ def get_bi_dir_depth_info(G, node_id):
     reversed_G = reverse_graph(G)
     return (get_downstream_depth_info(G,node_id),get_downstream_depth_info(reversed_G,node_id))
 def get_bi_avg_graph_depth(G, node_id):
-    max_downStream = max(0, max(get_downstream_depth_info(G, node_id)))
+    max_downStream = max(0, len(get_downstream_depth_info(G, node_id))) # bug_fix:max() to len()
     reversed_G = reverse_graph(G)
-    max_upStream = max(0, max(get_downstream_depth_info(reversed_G, node_id)))
+    max_upStream = max(0, len(get_downstream_depth_info(reversed_G, node_id))) # bug_fix:max() to len()
     return (max_downStream+max_upStream) / 2
 
 def get_graph_bounding_box(graph):

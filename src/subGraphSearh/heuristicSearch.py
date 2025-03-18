@@ -59,6 +59,7 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
     """
 
     # 初始化
+    central_nodes = set(target_subgraph.nodes) # bug_fix: 新增目标区域的子图节点set，所有搜索到的新子图不能含目标区域的子图节点，搜索的中心点也不能在目标区域内
     visited_nodes = set(target_subgraph.nodes)
     candidate_subgraphs = []
     # get target_subgraph depth
@@ -69,12 +70,13 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
     sub_candi_graph_id = 0
     for node in initial_nodes:
         candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
-        while any(candidate_subgraph_node_id in visited_nodes for candidate_subgraph_node_id in candidate_subgraph_node_list):
+        while any(candidate_subgraph_node_id in visited_nodes for candidate_subgraph_node_id in candidate_subgraph_node_list) | (node in central_nodes): # bug_fix : 新增| (node in central_nodes)， 用于判断中心点是否重复
             node = random.sample(list(graph.nodes), 1)[0]
             candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
             # 会导致子图的数量达不到要求
         candidate_subgraph = graph.subgraph(candidate_subgraph_node_list).copy()
-        ox.save_graph_geopackage(candidate_subgraph, f"/users/convel/desktop/test_hp_rnd_graph{node}.gpkg")
+        central_nodes.add(node)# bug_fix:全行为新增，将符合条件的子图中心点加入中心点集中，后续不重复该点
+        # ox.save_graph_geopackage(candidate_subgraph, f"/users/convel/desktop/test_hp_rnd_graph{node}.gpkg")# bug_fix:每次都输出，子图有点多，先注释了
 
         tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
         heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph))
@@ -96,7 +98,10 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
             tmp_subgraphs = get_adj_subGraphs(graph,tmp_coord, graph_node_lon, graph_node_lat,  search_step) # bug_fix : 调换tmp_coord的位置
             for tmp_subgraph_node in tmp_subgraphs: # bug_fix : tmp_subgraph改为tmp_subgraph_node,tmp_subgraphs是一个list,其中的每个元素是一个周边的nodeID
                 tmp_subgraph_node_list = bidirectional_search(graph, tmp_subgraph_node,sub_g_avg_depth)  # bug_fix:全行为新增，以节点nodeID生成新的子图
-                tmp_subgraph = graph.subgraph(tmp_subgraph_node_list) #bug_fix:全行为新增，以节点nodeID生成新的子图
+                while any(tmp_subgraph_node_id in visited_nodes for tmp_subgraph_node_id in tmp_subgraph_node_list) | ( tmp_subgraph_node in central_nodes):  # bug_fix:全行为新增，判断上下左右搜索的节点是否重复
+                    continue # bug_fix:全行为新增，若重复，跳过该子图
+                tmp_subgraph = graph.subgraph(tmp_subgraph_node_list) #bug_fix:全行为新增，以子图的节点nodeID生成新的子图
+                central_nodes.add(tmp_subgraph_node) # bug_fix:全行为新增，将符合条件的子图中心点加入中心点集中，后续不重复该点
                 tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, tmp_subgraph)
                 heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, tmp_subgraph)) #bug_fix : heappush(tmp_subgraph, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph)) 为旧代码
                 sub_candi_graph_id += 1

@@ -47,7 +47,7 @@ if __name__ == "__main__":
     # sub_g_1 = bidirectional_search(gr, 6369608427, sub_g_avg_depth)
     # ox.save_graph_geopackage(gr.subgraph(sub_g_1), "/users/convel/desktop/sub_g_1.gpkg")
 
-    heuristic_search_graphs = heuristic_search(gr, sub_g, 20)
+    heuristic_search_graphs = heuristic_search(gr, sub_g, 20) #新增结果输出
     graphs_id = 0
     for heuristic_search_graph in heuristic_search_graphs:
         ox.save_graph_geopackage(heuristic_search_graph, "/users/convel/desktop/sub_g_"+str(graphs_id)+".gpkg")

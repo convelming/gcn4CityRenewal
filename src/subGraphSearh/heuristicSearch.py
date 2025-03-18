@@ -94,9 +94,10 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
             # calculate four coords and then get closest nodes of these four
             #
             tmp_subgraphs = get_adj_subGraphs(graph,tmp_coord, graph_node_lon, graph_node_lat,  search_step) # bug_fix : 调换tmp_coord的位置
-            for tmp_subgraph in tmp_subgraphs:
+            for tmp_subgraph_node in tmp_subgraphs: # bug_fix : tmp_subgraph改为tmp_subgraph_node,tmp_subgraphs是一个list,其中的每个元素是一个周边的nodeID
+                tmp_subgraph = graph.subgraph(bidirectional_search(graph, tmp_subgraph_node, sub_g_avg_depth)) #bug_fix:全行为新增，以节点nodeID生成新的子图
                 tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, tmp_subgraph)
-                heappush(tmp_subgraph, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph))
+                heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, tmp_subgraph)) #bug_fix : heappush(tmp_subgraph, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph)) 为旧代码
                 sub_candi_graph_id += 1
 
         # 检查candidate_subgraphs, 如果数量不够，则采用random的方式补齐；若多了则删除掉排名靠后的元素

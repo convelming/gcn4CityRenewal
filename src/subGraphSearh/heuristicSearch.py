@@ -25,7 +25,7 @@
 """
 import heapq
 import random
-from heapq import heappush, heappop
+from heapq import heappush, heappop , heapreplace
 import osmnx as ox
 
 from src.subGraphSearh.similarityCals import cal_total_weighted_similarity
@@ -82,9 +82,9 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
     iTerminate = 0
     tmp_error = 9999.99
     # 迭代搜索
+    sub_candi_graph_id = 0 # bug_fix:将下面for循环中第二行（tmp_best = sorted(）下一行）的sub_candi_graph_id初始化提前到此
     for i in range(max_iter):
-        tmp_best = sorted(candidate_subgraphs)[0]
-        sub_candi_graph_id = 0
+        tmp_best = sorted(candidate_subgraphs,reverse=True)[0] # bug_fix: 增加reverse=True,使得sorted从大倒序排序
         # 在指定排名靠前的元素生成子图，添加到candidate_subgraphs里
         for tmp_similar_subgraph in heapq.nlargest(int(num_results*search_strategy["top_adj"]), candidate_subgraphs): # bug_fix : 返回前n个需要int
             # get tmp subgraph centroid then get coords
@@ -104,23 +104,27 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
         while len(candidate_subgraphs)<num_results:
             initial_nodes = random.sample(list(graph.nodes), min(20, num_results))
             for node in initial_nodes:
-                candidate_subgraph = bidirectional_search(graph, node, sub_g_avg_depth)
+                candidate_subgraph = graph.subgraph(bidirectional_search(graph, node, sub_g_avg_depth)) # bug_fix : 增加了graph.subgraph(）
                 if not candidate_subgraph or visited_nodes & set(candidate_subgraph.nodes):
                     continue  # 会导致子图的数量达不到要求
                 similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
-                if len(candidate_subgraphs) > num_results:
-                    heapq.heappop(candidate_subgraphs)
-                else:
-                    heappush(candidate_subgraphs, (similarity_score, sub_candi_graph_id, candidate_subgraph))
-                    sub_candi_graph_id += 1
+                heappush(candidate_subgraphs, (similarity_score, sub_candi_graph_id, candidate_subgraph)) #bug_fix : 从这到注释代码前为更改代码，旧代码在下方整段注释
+                sub_candi_graph_id += 1
+        if len(candidate_subgraphs) > num_results:
+            candidate_subgraphs = sorted(candidate_subgraphs,reverse=True)[0:num_results]
+                # if len(candidate_subgraphs) > num_results:
+                #     heapq.heappop(candidate_subgraphs)
+                # else:
+                #     heappush(candidate_subgraphs, (similarity_score, sub_candi_graph_id, candidate_subgraph))
+                #     sub_candi_graph_id += 1
         # 计算终止条件
-        tmp_error = abs(tmp_best-sorted(candidate_subgraphs)[0])
+        tmp_error = abs(tmp_best[0]-sorted(candidate_subgraphs,reverse=True)[0][0]) # bug_fix :增加reverse=True, tmp_best 和sorted(.)[0]后 增加了[0]
         if tmp_error < error:
             iTerminate += 1
         else:
             iTerminate = 0
         if iTerminate > 10:
             print(f"There are no dominating results for the last iterations, iteration terminate at iter: {i}.")
-            return [subgraph for _, subgraph in sorted(candidate_subgraphs, key=lambda x: -x[0])[:num_results]]
+            return [subgraph for _,__,subgraph in sorted(candidate_subgraphs, key=lambda x: -x[0])[:num_results]] # bug_fix : for _,subgraph 改为 for _,__,subgraph
     # 返回按相似度排序的结果
-    return [subgraph for _, subgraph in sorted(candidate_subgraphs, key=lambda x: -x[0])[:num_results]]
+    return [subgraph for _,__,subgraph in sorted(candidate_subgraphs, key=lambda x: -x[0])[:num_results]] # bug_fix : for _,subgraph 改为 for _,__,subgraph

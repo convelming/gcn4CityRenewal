@@ -98,7 +98,7 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
             tmp_subgraphs = get_adj_subGraphs(graph,tmp_coord, graph_node_lon, graph_node_lat,  search_step) # bug_fix : 调换tmp_coord的位置
             for tmp_subgraph_node in tmp_subgraphs: # bug_fix : tmp_subgraph改为tmp_subgraph_node,tmp_subgraphs是一个list,其中的每个元素是一个周边的nodeID
                 tmp_subgraph_node_list = bidirectional_search(graph, tmp_subgraph_node,sub_g_avg_depth)  # bug_fix:全行为新增，以节点nodeID生成新的子图
-                while any(tmp_subgraph_node_id in visited_nodes for tmp_subgraph_node_id in tmp_subgraph_node_list) | ( tmp_subgraph_node in central_nodes):  # bug_fix:全行为新增，判断上下左右搜索的节点是否重复
+                if any(tmp_subgraph_node_id in visited_nodes for tmp_subgraph_node_id in tmp_subgraph_node_list) | ( tmp_subgraph_node in central_nodes):  # bug_fix:全行为新增，判断上下左右搜索的节点是否重复
                     continue # bug_fix:全行为新增，若重复，跳过该子图
                 tmp_subgraph = graph.subgraph(tmp_subgraph_node_list) #bug_fix:全行为新增，以子图的节点nodeID生成新的子图
                 central_nodes.add(tmp_subgraph_node) # bug_fix:全行为新增，将符合条件的子图中心点加入中心点集中，后续不重复该点

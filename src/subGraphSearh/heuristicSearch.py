@@ -106,6 +106,18 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
                 heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, tmp_subgraph)) #bug_fix : heappush(tmp_subgraph, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph)) 为旧代码
                 sub_candi_graph_id += 1
 
+        #bug_fix:以下这一段（10行）为新增，用于在每次迭代过程中进行随机搜索新的子图，使随机搜索的与邻域搜索的进行比较，跳出局部最优
+        initial_nodes = random.sample(list(graph.nodes), min(len(graph.nodes), num_results))
+        for node in initial_nodes:
+            candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
+            while any(candidate_subgraph_node_id in visited_nodes for candidate_subgraph_node_id in candidate_subgraph_node_list) | (node in central_nodes): # bug_fix : 新增| (node in central_nodes)， 用于判断中心点是否重复
+                node = random.sample(list(graph.nodes), 1)[0]
+                candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
+            candidate_subgraph = graph.subgraph(candidate_subgraph_node_list).copy()
+            central_nodes.add(node)
+            tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
+            heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph))
+
         # 检查candidate_subgraphs, 如果数量不够，则采用random的方式补齐；若多了则删除掉排名靠后的元素
         while len(candidate_subgraphs)<num_results:
             initial_nodes = random.sample(list(graph.nodes), min(20, num_results))

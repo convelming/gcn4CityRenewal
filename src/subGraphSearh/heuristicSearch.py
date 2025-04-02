@@ -106,7 +106,7 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
                 heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, tmp_subgraph)) #bug_fix : heappush(tmp_subgraph, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph)) 为旧代码
                 sub_candi_graph_id += 1
 
-        #bug_fix:以下这一段（10行）为新增，用于在每次迭代过程中进行随机搜索新的子图，使随机搜索的与邻域搜索的进行比较，跳出局部最优
+        #bug_fix:以下这一段（11行）为新增，用于在每次迭代过程中进行随机搜索新的子图，使随机搜索的与邻域搜索的进行比较，跳出局部最优
         initial_nodes = random.sample(list(graph.nodes), min(len(graph.nodes), num_results))
         for node in initial_nodes:
             candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)

@@ -117,7 +117,7 @@ def heuristic_search(graph, target_subgraph, num_results, graph_node_lon='x', gr
             central_nodes.add(node)
             tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
             heappush(candidate_subgraphs, (tmp_similarity_score, sub_candi_graph_id, candidate_subgraph))
-
+            sub_candi_graph_id += 1
         # 检查candidate_subgraphs, 如果数量不够，则采用random的方式补齐；若多了则删除掉排名靠后的元素
         while len(candidate_subgraphs)<num_results:
             initial_nodes = random.sample(list(graph.nodes), min(20, num_results))

@@ -1,0 +1,236 @@
+import warnings
+warnings.filterwarnings("ignore")
+import ast
+import random
+import geopandas as gpd
+import networkx as nx
+import numpy as np
+import osmnx as ox
+import pandas as pd
+import math
+import pickle
+import time
+import multiprocessing
+from multiprocessing import Pool, Manager, Lock
+from functools import partial
+
+from src.subGraphSearh.heuristicSearch import heuristic_search
+from src.subGraphSearh.similarityCals import cal_graph_degree_distribution, cal_KL_divergence, cal_cluster_coe_diff, \
+    cal_shortest_path_length_ratio, cal_edge_similarity, \
+    cal_total_weighted_similarity, cal_graph_cosine_similarity
+from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_bi_dir_depth_info, \
+    get_bi_avg_graph_depth, bidirectional_search
+
+from sklearn.cluster import KMeans
+
+
+def cluster_dis(dis):
+    if dis<=5000:
+        return(1)
+    elif dis<=10000:
+        return(2)
+    elif dis<=15000:
+        return(3)
+    elif dis<=20000:
+        return(4)
+    elif dis<=30000:
+        return(5)
+    else:
+        return(6)      
+def sum_feature(df_data,clus_col,feature_col):
+    df_feature = df_data.copy()
+    df_feature[feature_col] = df_feature[feature_col].apply(ast.literal_eval)
+    df_sum = (
+        df_feature.groupby(clus_col)[feature_col]
+        .apply(lambda x: pd.DataFrame(x.tolist()).sum().tolist())
+        .reset_index(name=feature_col)
+    )
+    return(df_sum)
+def get_od(clu_id,df_od,gpd_target,df_other_area):
+    df_od_num = df_od[( (df_od['source_id'].isin(gpd_target['osmid'])) & (df_od['target_id'].isin( df_other_area[df_other_area['area_clus']==clu_id]['osmid'] )) ) |
+                      ( (df_od['target_id'].isin(gpd_target['osmid'])) & (df_od['source_id'].isin( df_other_area[df_other_area['area_clus']==clu_id]['osmid'] )) )]
+    return(df_od_num['car_uv'].sum())
+def get_o_od(clu_id,df_od,gpd_target,df_other_area):
+    df_od_num = df_od[( (df_od['source_id'].isin(gpd_target['osmid'])) & 
+                       (df_od['target_id'].isin( df_other_area[df_other_area['area_clus']==clu_id]['osmid'] )) ) 
+                      ]
+    return(df_od_num['car_uv'].sum())
+def get_d_od(clu_id,df_od,gpd_target,df_other_area):
+    df_od_num = df_od[
+                      ( (df_od['target_id'].isin(gpd_target['osmid'])) & 
+                       (df_od['source_id'].isin( df_other_area[df_other_area['area_clus']==clu_id]['osmid'] )) )]
+    return(df_od_num['car_uv'].sum())
+def clu_osmid(df_data,clus_name):
+    df = df_data[df_data['area_clus']==clus_name]
+    return(str(list(df['osmid'])))    
+def creat_input(gr,gdf_node,gdf_edge,df_od_data,depth,central_point,od_judge):
+    sub_g_avg_depth =depth
+    candidate_subgraph_node_list = bidirectional_search(gr, central_point, sub_g_avg_depth)
+    gpd_sub = gdf_node[gdf_node['osmid'].isin(candidate_subgraph_node_list)].reset_index(drop=True)
+    gpd_sub_x = gpd_sub['x'].mean()
+    gpd_sub_y = gpd_sub['y'].mean()    
+    gpd_rest = gdf_node[~gdf_node['osmid'].isin(candidate_subgraph_node_list)].reset_index(drop=True)
+    gpd_rest['dis'] = gpd_rest.apply(lambda z:math.sqrt((z.y-gpd_sub_y)**2+(z.x-gpd_sub_x)**2),axis=1)
+    gpd_rest['dis_clus'] = gpd_rest.apply(lambda z: cluster_dis(z.dis),axis=1)
+    df_all_data = pd.DataFrame()
+    for c in range(1,7):
+        df_clu = gpd_rest[gpd_rest['dis_clus']==c]
+        n_c = (9-c)*2
+        if len(df_clu)<n_c:
+            n_c = len(df_clu)
+        kmeans = KMeans(n_clusters=int(n_c))
+        kmeans.fit(df_clu[['x', 'y']])
+        labels = kmeans.labels_
+        centroids = kmeans.cluster_centers_
+        df_clu['cluster'] = labels
+        df_all_clu = pd.DataFrame()
+        for la in range(labels.max()+1):
+            df_clu_la = df_clu[df_clu['cluster']==la]
+            df_clu_la['clu_x'] = centroids[la][0] 
+            df_clu_la['clu_y'] = centroids[la][1] 
+            df_all_clu = pd.concat([df_all_clu,df_clu_la])
+        df_all_data = pd.concat([df_all_data,df_all_clu])
+    df_all_data['area_clus'] = df_all_data.apply(lambda z:str(int(z.dis_clus))+'_'+str(int(z.cluster)),axis=1) 
+    # df_d = pd.merge(df_all_data[['area_clus','clu_x','clu_y']].drop_duplicates(),sum_feature(df_all_data,'area_clus','features'))    
+    df_all_clus = df_all_data[['area_clus','clu_x','clu_y']].drop_duplicates()
+    df_all_clus['clus_osmid'] = df_all_clus.apply(lambda z:clu_osmid(df_all_data,z.area_clus),axis=1)
+    df_d = pd.merge(df_all_clus,sum_feature(df_all_data,'area_clus','features'))
+
+    gpd_sub['o_id'] = str(central_point)+"_"+str(int(sub_g_avg_depth))
+    df_o = sum_feature(gpd_sub,'o_id','features')
+    df_o['o_x'] = gpd_sub_x
+    df_o['o_y'] = gpd_sub_y
+
+    # df_o = df_o.rename(columns={'features':'o_features'})
+    if od_judge == 'd':
+        df_o = df_o.rename(columns={'features':'d_features'})
+    else:
+        df_o = df_o.rename(columns={'features':'o_features'})
+
+    df_input = pd.concat([df_d,pd.concat([df_o] * len(df_d), ignore_index=True)],axis=1)
+    df_input['line_dis'] = df_input.apply(lambda z:math.sqrt((z.o_x-z.clu_x)**2+(z.o_y-z.clu_y)**2),axis=1)
+    # df_input['flowCounts'] = df_input.apply(lambda z:get_od(z.area_clus,df_od_data,gpd_sub,df_all_data),axis=1)
+    if od_judge == 'd':          
+        df_input['flowCounts'] = df_input.apply(lambda z:get_d_od(z.area_clus,df_od_data,gpd_sub,df_all_data),axis=1)
+        df_input = df_input.rename(columns={'features':'o_features'})
+    else:
+        df_input['flowCounts'] = df_input.apply(lambda z:get_o_od(z.area_clus,df_od_data,gpd_sub,df_all_data),axis=1)
+        df_input = df_input.rename(columns={'features':'d_features'})
+
+    df_input['input_x'] = df_input.apply(lambda z:z.d_features+z.o_features+[z.line_dis],axis=1)####################
+    df_input['od_type'] = od_judge
+    df_output = df_input[['o_id','clus_osmid','input_x','flowCounts','od_type']]  
+    return(df_output)
+
+file_lock = Lock()
+
+def read_file():
+    # 每个进程独立加载数据，避免共享大数据
+    r_graph = ox.load_graphml('./base_data/guangzhou_drive_feature_node&edge.graphml')
+    r_gdf_node = gpd.read_file("./base_data/guangzhou_drive_feature_node&edge.gpkg", layer='nodes')
+    r_gdf_edge = gpd.read_file("./base_data/guangzhou_drive_feature_node&edge.gpkg", layer='edges')   
+    r_gdf_node = r_gdf_node.to_crs('EPSG:4526')
+    r_gdf_node['x'] = r_gdf_node.apply(lambda z: z.geometry.x, axis=1)
+    r_gdf_node['y'] = r_gdf_node.apply(lambda z: z.geometry.y, axis=1) 
+    r_df_od = pd.read_csv('./base_data/base_od.csv')
+    return r_graph, r_gdf_node, r_gdf_edge, r_df_od
+
+def do_one(index, result_queue):
+    print(f'kernel_{index}_start')
+    try:
+        shared_graph, shared_gdf_node, shared_gdf_edge, shared_df_od = read_file()
+        
+        list_search_kernel = list()
+        df_xy_kernel = pd.DataFrame()
+        
+        while len(list_search_kernel) < 1000:
+            random_osmid = random.choice(shared_gdf_node['osmid'])
+            random_depth = random.randint(4, 20)
+            random_id = f"{int(random_osmid)}_{int(random_depth)}"
+            
+            if random_id not in list_search_kernel:
+                od_ran = random.choice(['o', 'd'])#######################################################
+                df_xy = creat_input(shared_graph, shared_gdf_node, shared_gdf_edge, 
+                                  shared_df_od, random_depth, random_osmid,od_ran)
+                df_xy_kernel = pd.concat([df_xy_kernel, df_xy])
+                list_search_kernel.append(random_id)
+                
+                if len(list_search_kernel) % 5 == 0:
+                    # 将结果放入队列而不是直接写文件
+                    result_queue.put((list_search_kernel.copy(), df_xy_kernel.copy()))
+                    df_xy_kernel = pd.DataFrame()  # 清空临时DataFrame
+        
+        # 处理剩余未提交的结果
+        if not df_xy_kernel.empty:
+            result_queue.put((list_search_kernel, df_xy_kernel))
+            
+    except Exception as e:
+        print(f"Process {index} failed: {str(e)}")
+
+def result_writer(result_queue):
+    """专门负责写文件的进程"""
+    list_search = []
+    df_all_xy = pd.DataFrame()
+    
+    try:
+        # 尝试加载已有数据
+        with file_lock:
+            try:
+                with open("./predict/list_search.pkl", "rb") as f:
+                    list_search = pickle.load(f)
+            except FileNotFoundError:
+                pass
+            
+            try:
+                df_all_xy = pd.read_csv('./predict/input_data.csv')
+            except FileNotFoundError:
+                pass
+    except Exception as e:
+        print(f"Error loading existing data: {str(e)}")
+    
+    while True:
+        try:
+            new_list, new_df = result_queue.get()
+            if new_list == "DONE":  # 结束信号
+                break
+                
+            # 合并新数据
+            list_search = list(set(list_search + new_list))
+            new_df['input_x'] = new_df['input_x'].apply(str)
+            df_all_xy = pd.concat([df_all_xy, new_df]).drop_duplicates()
+            
+            # 写入文件
+            with file_lock:
+                with open("./predict/list_search.pkl", "wb") as f:
+                    pickle.dump(list_search, f)
+                df_all_xy.to_csv('./predict/input_data.csv', index=False)
+                
+            print(f"Writer: Current total records: {len(df_all_xy)}")
+            
+        except Exception as e:
+            print(f"Error in writer process: {str(e)}")
+
+def run_multi():
+    # 使用队列收集结果
+    manager = Manager()
+    result_queue = manager.Queue()
+    
+    # 启动写入进程
+    writer_pool = Pool(1)
+    writer_pool.apply_async(result_writer, (result_queue,))
+    
+    # 启动工作进程
+    worker_pool = Pool(6)
+    for i in range(6):
+        worker_pool.apply_async(do_one, (i, result_queue))
+    
+    worker_pool.close()
+    worker_pool.join()
+    
+    # 通知写入进程结束
+    result_queue.put(("DONE", None))
+    writer_pool.close()
+    writer_pool.join()
+
+if __name__ == '__main__':
+    run_multi()    

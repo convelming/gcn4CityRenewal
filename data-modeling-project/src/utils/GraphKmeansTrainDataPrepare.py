@@ -38,7 +38,7 @@ def cluster_dis(dis):
         return (6)
 
 
-def sum_feature(df_data, clus_col, feature_col='features'):
+def sum_feature(df_data, clus_col='o_id', feature_col='features'):
     """将区域内的feature进行求和"""
     df_feature = df_data.copy()
     if type(df_feature[feature_col].values[0]) != list:
@@ -68,21 +68,20 @@ def clu_osmid(df_data, clus_name,clus_col = 'area_clus',id_col='osmid'):
 def creat_input(gr, gdf_node, df_od_data, depth, central_point,
                 gdf_node_id_col='osmid',x_col='x',y_col='y'): #gr为全市图网络，gdf_node为各节点的属性，df_od_data为各节点之间的od量
     sub_g_avg_depth = depth  #子图深度
-    candidate_subgraph_node_list = bidirectional_search(gr, central_point, sub_g_avg_depth)#创建子图，并记录子图都有哪些节点
-    gpd_sub = gdf_node[gdf_node[gdf_node_id_col].isin(candidate_subgraph_node_list)].reset_index(drop=True) #
-    gpd_sub_x = gpd_sub[x_col].mean()
+    candidate_subgraph_node_list = bidirectional_search(gr, central_point, sub_g_avg_depth)#创建中心子图，并记录中心子图都有哪些节点
+    gpd_sub = gdf_node[gdf_node[gdf_node_id_col].isin(candidate_subgraph_node_list)].reset_index(drop=True) #提取出中心子图的节点属性
+    gpd_sub_x = gpd_sub[x_col].mean()#计算中心子图的中心位置
     gpd_sub_y = gpd_sub[y_col].mean()
-    gpd_rest = gdf_node[~gdf_node[gdf_node_id_col].isin(candidate_subgraph_node_list)].reset_index(drop=True)
-    gpd_rest['dis'] = gpd_rest.apply(lambda z: math.sqrt((z.y - gpd_sub_y) ** 2 + (z.x - gpd_sub_x) ** 2), axis=1)
-    gpd_rest['dis_clus'] = gpd_rest.apply(lambda z: cluster_dis(z.dis), axis=1)
+    gpd_rest = gdf_node[~gdf_node[gdf_node_id_col].isin(candidate_subgraph_node_list)].reset_index(drop=True)#提取除中心子图外的节点属性
+    gpd_rest['dis'] = gpd_rest.apply(lambda z: math.sqrt((z.y - gpd_sub_y) ** 2 + (z.x - gpd_sub_x) ** 2), axis=1) # 计算其他节点距中心子图中心的直线距离
+    gpd_rest['dis_clus'] = gpd_rest.apply(lambda z: cluster_dis(z.dis), axis=1) #基于直线距离先分为6大类
+    #在6大类中再通过kmeans聚类
     df_all_data = pd.DataFrame()
-
     for c in range(1, 7):
         df_clu = gpd_rest[gpd_rest['dis_clus'] == c]
         n_c = (9 - c) * 2
         if len(df_clu) < n_c:
             n_c = len(df_clu)
-
         kmeans = KMeans(n_clusters=int(n_c))
         kmeans.fit(df_clu[[x_col, y_col]])
         labels = kmeans.labels_
@@ -91,29 +90,27 @@ def creat_input(gr, gdf_node, df_od_data, depth, central_point,
         df_all_clu = pd.DataFrame()
         for la in range(labels.max() + 1):
             df_clu_la = df_clu[df_clu['cluster'] == la]
-            df_clu_la['clu_x'] = centroids[la][0]
+            df_clu_la['clu_x'] = centroids[la][0] #计算每一个小类的中心点
             df_clu_la['clu_y'] = centroids[la][1]
             df_all_clu = pd.concat([df_all_clu, df_clu_la])
         df_all_data = pd.concat([df_all_data, df_all_clu])
 
-    df_all_data['area_clus'] = df_all_data.apply(lambda z: str(int(z.dis_clus)) + '_' + str(int(z.cluster)), axis=1)
+    df_all_data['area_clus'] = df_all_data.apply(lambda z: str(int(z.dis_clus)) + '_' + str(int(z.cluster)), axis=1) #距离大类+聚类小类
     df_all_clus = df_all_data[['area_clus', 'clu_x', 'clu_y']].drop_duplicates()
-    df_all_clus['clus_osmid'] = df_all_clus.apply(lambda z: clu_osmid(df_all_data, z.area_clus), axis=1)
+    df_all_clus['clus_osmid'] = df_all_clus.apply(lambda z: clu_osmid(df_all_data, z.area_clus), axis=1) #每一类中都有哪些单位节点id
     df_d = pd.merge(df_all_clus, sum_feature(df_all_data, 'area_clus', 'features'))
     df_d['clus_osmid'] = df_d['clus_osmid'].apply(ast.literal_eval)
     gpd_sub['o_id'] = str(central_point) + "_" + str(int(sub_g_avg_depth))
-    df_o = sum_feature(gpd_sub, 'o_id', 'features')
+    df_o = sum_feature(gpd_sub, 'o_id', 'features')#计算中心区域的节点属性总和
 
     del df_o['o_id']
     df_o['clus_osmid'] = pd.Series(dtype='object')
-    df_o.at[0, 'clus_osmid'] = candidate_subgraph_node_list
-
+    df_o.at[0, 'clus_osmid'] = candidate_subgraph_node_list#中心区域有哪些节点
     df_o['clu_x'] = gpd_sub_x
     df_o['clu_y'] = gpd_sub_y
-    df_o['area_clus'] = '0_0'
-    df_o_d = pd.concat([df_o, df_d])
-    df_o = []
-    df_d = []
+    df_o['area_clus'] = '0_0'#中心区域的类别设为0_0
+
+    df_o_d = pd.concat([df_o, df_d])#将中心区域与其他区域进行合并
     df_o_d = df_o_d.reset_index(drop=True)
 
     df_clus_osm = pd.DataFrame()
@@ -125,7 +122,6 @@ def creat_input(gr, gdf_node, df_od_data, depth, central_point,
     df_od_data = pd.merge(df_od_data, df_clus_osm)
     df_clus_osm.columns = ['target_id', 'area_clus_d']
     df_od_data = pd.merge(df_od_data, df_clus_osm)
-    df_clus_osm = []
     df_od_data = df_od_data[['area_clus', 'area_clus_d', 'car_uv']]
     df_od_data = df_od_data.rename(columns={'car_uv': 'flowCounts'})
 

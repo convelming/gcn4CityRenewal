@@ -1,6 +1,3 @@
-import warnings
-
-warnings.filterwarnings("ignore")
 import ast
 import random
 import geopandas as gpd
@@ -26,6 +23,7 @@ from sklearn.cluster import KMeans
 
 
 def cluster_dis(dis):
+    """每5km的区域进行分类"""
     if dis <= 5000:
         return (1)
     elif dis <= 10000:
@@ -40,9 +38,11 @@ def cluster_dis(dis):
         return (6)
 
 
-def sum_feature(df_data, clus_col, feature_col):
+def sum_feature(df_data, clus_col, feature_col='features'):
+    """将区域内的feature进行求和"""
     df_feature = df_data.copy()
-    df_feature[feature_col] = df_feature[feature_col].apply(ast.literal_eval)
+    if type(df_feature[feature_col].values[0]) != list:
+        df_feature[feature_col] = df_feature[feature_col].apply(ast.literal_eval)
     df_sum = (
         df_feature.groupby(clus_col)[feature_col]
         .apply(lambda x: pd.DataFrame(x.tolist()).sum().tolist())
@@ -51,25 +51,28 @@ def sum_feature(df_data, clus_col, feature_col):
     return (df_sum)
 
 
-def get_o_od(clu_id_o, clu_id_d, df_od):
-    df_od_num = df_od[((df_od['source_id'].isin(clu_id_o)) &
-                       (df_od['target_id'].isin(clu_id_d)))
+def get_o_od(clu_id_o, clu_id_d, df_od , o_id_col = 'source_id', d_id_col = 'target_id',uv_col = 'car_uv'):
+    """获取起点在clu_id_o中，终点在clu_id_d的OD量"""
+    df_od_num = df_od[((df_od[o_id_col].isin(clu_id_o)) &
+                       (df_od[d_id_col].isin(clu_id_d)))
     ]
-    return (df_od_num['car_uv'].sum())
+    return (df_od_num[uv_col].sum())
 
 
-def clu_osmid(df_data, clus_name):
-    df = df_data[df_data['area_clus'] == clus_name]
-    return (str(list(df['osmid'])))
+def clu_osmid(df_data, clus_name,clus_col = 'area_clus',id_col='osmid'):
+    """在聚类小区内有哪些基础单元点"""
+    df = df_data[df_data[clus_col] == clus_name]
+    return (str(list(df[id_col])))
 
 
-def creat_input(gr, gdf_node, df_od_data, depth, central_point):
-    sub_g_avg_depth = depth
-    candidate_subgraph_node_list = bidirectional_search(gr, central_point, sub_g_avg_depth)
-    gpd_sub = gdf_node[gdf_node['osmid'].isin(candidate_subgraph_node_list)].reset_index(drop=True)
-    gpd_sub_x = gpd_sub['x'].mean()
-    gpd_sub_y = gpd_sub['y'].mean()
-    gpd_rest = gdf_node[~gdf_node['osmid'].isin(candidate_subgraph_node_list)].reset_index(drop=True)
+def creat_input(gr, gdf_node, df_od_data, depth, central_point,
+                gdf_node_id_col='osmid',x_col='x',y_col='y'): #gr为全市图网络，gdf_node为各节点的属性，df_od_data为各节点之间的od量
+    sub_g_avg_depth = depth  #子图深度
+    candidate_subgraph_node_list = bidirectional_search(gr, central_point, sub_g_avg_depth)#创建子图，并记录子图都有哪些节点
+    gpd_sub = gdf_node[gdf_node[gdf_node_id_col].isin(candidate_subgraph_node_list)].reset_index(drop=True) #
+    gpd_sub_x = gpd_sub[x_col].mean()
+    gpd_sub_y = gpd_sub[y_col].mean()
+    gpd_rest = gdf_node[~gdf_node[gdf_node_id_col].isin(candidate_subgraph_node_list)].reset_index(drop=True)
     gpd_rest['dis'] = gpd_rest.apply(lambda z: math.sqrt((z.y - gpd_sub_y) ** 2 + (z.x - gpd_sub_x) ** 2), axis=1)
     gpd_rest['dis_clus'] = gpd_rest.apply(lambda z: cluster_dis(z.dis), axis=1)
     df_all_data = pd.DataFrame()
@@ -81,28 +84,22 @@ def creat_input(gr, gdf_node, df_od_data, depth, central_point):
             n_c = len(df_clu)
 
         kmeans = KMeans(n_clusters=int(n_c))
-        kmeans.fit(df_clu[['x', 'y']])
+        kmeans.fit(df_clu[[x_col, y_col]])
         labels = kmeans.labels_
         centroids = kmeans.cluster_centers_
-
         df_clu['cluster'] = labels
         df_all_clu = pd.DataFrame()
-
         for la in range(labels.max() + 1):
             df_clu_la = df_clu[df_clu['cluster'] == la]
-
             df_clu_la['clu_x'] = centroids[la][0]
             df_clu_la['clu_y'] = centroids[la][1]
             df_all_clu = pd.concat([df_all_clu, df_clu_la])
-
         df_all_data = pd.concat([df_all_data, df_all_clu])
 
     df_all_data['area_clus'] = df_all_data.apply(lambda z: str(int(z.dis_clus)) + '_' + str(int(z.cluster)), axis=1)
     df_all_clus = df_all_data[['area_clus', 'clu_x', 'clu_y']].drop_duplicates()
     df_all_clus['clus_osmid'] = df_all_clus.apply(lambda z: clu_osmid(df_all_data, z.area_clus), axis=1)
     df_d = pd.merge(df_all_clus, sum_feature(df_all_data, 'area_clus', 'features'))
-    df_all_data = []
-    df_all_clus = []
     df_d['clus_osmid'] = df_d['clus_osmid'].apply(ast.literal_eval)
     gpd_sub['o_id'] = str(central_point) + "_" + str(int(sub_g_avg_depth))
     df_o = sum_feature(gpd_sub, 'o_id', 'features')

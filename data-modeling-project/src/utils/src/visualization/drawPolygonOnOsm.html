@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OSM多边形绘制</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        .control {
+            position: fixed;
+            left: 50px;
+            top: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        #coordinates {
+            position: fixed;
+            right: 10px;
+            top: 10px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="control">
+        <button onclick="startDrawing()">click to draw polygon</button>
+    </div>
+    <div id="coordinates"></div>
+
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
+    <script>
+        let map;
+        let draw;
+        let coordinates = [];
+        let vectorLayer;
+
+        // 初始化地图
+        function initMap() {
+            map = new ol.Map({
+                target: 'map',
+                layers: [
+                    new ol.layer.Tile({
+                        source: new ol.source.OSM()
+                    })
+                ],
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([113.3773,23.1142]),
+                    zoom: 11
+                })
+            });
+        }
+
+        // 开始绘制
+        function startDrawing() {
+            // 清除现有绘制层
+            if (vectorLayer) {
+                map.removeLayer(vectorLayer);
+            }
+            if (draw) {
+                map.removeInteraction(draw);
+            }
+
+            // 创建新的矢量层
+            vectorLayer = new ol.layer.Vector({
+                source: new ol.source.Vector()
+            });
+            map.addLayer(vectorLayer);
+
+            // 创建绘制交互
+            draw = new ol.interaction.Draw({
+                source: vectorLayer.getSource(),
+                type: 'Polygon',
+                freehand: false
+            });
+
+            // 清空坐标数组
+            coordinates = [];
+            updateCoordinateDisplay();
+
+            // 添加顶点事件监听
+            draw.on('drawstart', function(event) {
+                event.feature.getGeometry().on('change', function(e) {
+                    const geom = e.target;
+                    if (geom.getType() === 'Polygon') {
+                        coordinates = geom.getCoordinates()[0];
+                        updateCoordinateDisplay();
+                    }
+                });
+            });
+
+            // 绘制完成事件
+            draw.on('drawend', function(event) {
+                map.removeInteraction(draw);
+                // 获取最终坐标（自动闭合）
+                const finalCoords = event.feature.getGeometry().getCoordinates()[0];
+                coordinates = finalCoords;
+                updateCoordinateDisplay();
+            });
+
+            map.addInteraction(draw);
+        }
+
+        // 更新坐标显示
+        function updateCoordinateDisplay() {
+            const coordList = coordinates.map(coord => {
+                const [lon, lat] = ol.proj.transform(coord, 'EPSG:3857', 'EPSG:4326');
+                return `(${lon.toFixed(6)}, ${lat.toFixed(6)}),`;
+            });
+            
+            document.getElementById('coordinates').innerHTML = 
+                `<strong>clicked points:</strong><br>${'['+coordList.join('<br>')+']'}`;
+        }
+
+        // 初始化
+        window.onload = initMap;
+    </script>
+</body>
+</html>

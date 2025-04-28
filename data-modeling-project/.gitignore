@@ -2,4 +2,4 @@
 __pycache__/
 data/raw/*
 .env
-/src/utils/GraphKmeansTrainDataPrepare.py
+/src/utils/12_ModelPrepare_GraphKmeansTrainDataPrepare.py

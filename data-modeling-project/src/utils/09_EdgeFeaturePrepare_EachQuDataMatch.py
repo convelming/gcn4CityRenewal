@@ -3,6 +3,9 @@ import warnings
 import os
 import geopandas as gpd
 import pandas as pd
+
+from src.subGraphSearh.heuristicSearch import heuristic_search
+
 from Lonlat_Tile import gaodedeg2num,gaodenum2deg
 from coordTransform import gcj02_to_wgs84
 warnings.filterwarnings("ignore")
@@ -129,8 +132,8 @@ def status_add(img,year,month,day,hour,minute,df_copy):
 
 list_qu_name = ['th','yx','lw','by','hz','py','hp','ns','hd','zc']
 list_central = ['th','yx','lw','by','hz','py']
-congestion_edge_file_path = 'F:/jupyter/dg/天河北城市更新/v5/congestion_edge/osm_edge_qu/'
-congestion_result_file_path = 'F:/jupyter/dg/天河北城市更新/v5/congestion_edge/congestion_result/'
+congestion_edge_file_path = '../data/congestion_edge/osm_edge_qu/'
+congestion_result_file_path = '../data/congestion_edge/congestion_result/'
 
 for qu_name in list_qu_name:
     for hour_num in range(24):

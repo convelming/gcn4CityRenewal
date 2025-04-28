@@ -1,26 +1,19 @@
-import warnings
-import time
-import pickle
-import warnings
 import os
-import math
 import pandas as pd
-import numpy as np
 import multiprocessing
 import geopandas as gpd
-from pyproj import Transformer
-from shapely.geometry import Point, LineString, Polygon
-warnings.filterwarnings("ignore")
+
+
 area_id = 'osmid'
-poi_path = 'F:/jupyter/dg/base_gis/'
-folder_path = './base_data/road/'
+poi_path = '../data/base_gis/'
+folder_path = '../data/base_data/road/'
 # 检查文件夹是否存在
 if not os.path.exists(folder_path):
     # 如果文件夹不存在，则创建文件夹
     os.makedirs(folder_path)
 
 def read_file(shared_dict):
-    gpd_fishnet = gpd.read_file('./base_data/voronoi_gz.shp')
+    gpd_fishnet = gpd.read_file('../data/base_data/voronoi_gz.shp')
     gpd_fishnet = gpd_fishnet.rename(columns={area_id: 'id'})
     network = gpd.read_file(poi_path+'network.shp', encoding='iso8859-1')
     network = network[['osm_id','highway','geometry']].dropna()
@@ -52,13 +45,13 @@ def do_one(index,road_type,step,shared_dict):
     data = data[['id',road_type]]
     print(road_type,index,'cal')
 
-    data.to_csv('./base_data/road/'+str(road_type)+'/'+str(index)+'.csv', index=False, encoding='utf-8')
+    data.to_csv('../data/base_data/road/'+str(road_type)+'/'+str(index)+'.csv', index=False, encoding='utf-8')
 
 def run_multi(shared_dict,road_type):
     for road_type in ['main','residential','other']:
-        all_num = len(gpd.read_file('./base_data/voronoi_gz.shp'))
+        all_num = len(gpd.read_file('../data/base_data/voronoi_gz.shp'))
         step = 50
-        folder = './base_data/road/' + str(road_type)
+        folder = '../data/base_data/road/' + str(road_type)
         if not os.path.exists(filepath):
             os.makedirs(filepath)
         list_fol = [int(int(s.replace('.csv', '')) / step) for s in os.listdir(folder)]
@@ -75,7 +68,7 @@ def run_multi(shared_dict,road_type):
 if __name__ == '__main__':
     #lock = multiprocessing.Lock()
     for road_type in ['main','residential','other']:
-        filepath = r"./base_data/road/" +road_type+'/'
+        filepath = "../data/base_data/road/" +road_type+'/'
         if not os.path.exists(filepath):
             os.makedirs(filepath)
 
@@ -83,17 +76,17 @@ if __name__ == '__main__':
         shared_dict = manager.dict()
         run_multi(shared_dict,road_type)
 
-    gpd_result = gpd.read_file('./base_data/voronoi_gz.shp')[[area_id]]
+    gpd_result = gpd.read_file('../data/base_data/voronoi_gz.shp')[[area_id]]
     gpd_result = gpd_result.rename(columns={area_id: 'id'})
     for road_type in ['main','residential','other']:
         df_all = pd.DataFrame()
-        folder = './base_data/road/'+str(road_type)
+        folder = '../data/base_data/road/'+str(road_type)
         for file_name in os.listdir(folder):
             df = pd.read_csv(folder+'/'+file_name)
             df_all = pd.concat([df_all,df])
         gpd_result = pd.merge(gpd_result,df_all)
     gpd_result = gpd_result.rename(columns={'id': area_id})
-    gpd_result.to_csv('./base_data/base_road.csv',index=False)
-    # gpd_result.to_file('./base_data/base_road.shp', driver='ESRI Shapefile', encoding='utf-8')
+    gpd_result.to_csv('../data/base_data/base_road.csv',index=False)
+
 
 

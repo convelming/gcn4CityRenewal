@@ -6,8 +6,8 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 area_id = 'osmid'
-poi_path = 'F:/jupyter/dg/base_gis/'
-folder_path = './base_data/landuse/'
+poi_path = '../data/base_gis/'
+folder_path = '../data/base_data/landuse/'
 # 检查文件夹是否存在
 if not os.path.exists(folder_path):
     # 如果文件夹不存在，则创建文件夹
@@ -52,7 +52,7 @@ def do_one(index, shared_dict):
     df_fishnet = df_fishnet.rename(columns={'居住用地': 'resident'})
     gpd_fishnet = gpd.GeoDataFrame(df_fishnet, geometry=df_fishnet.geometry)
     gpd_fishnet.crs= gpd_cp.crs 
-    gpd_fishnet.to_file('./base_data/landuse/base_landuse'+str(index)+'.shp', driver='ESRI Shapefile', encoding='utf-8')
+    gpd_fishnet.to_file('../data/base_data/landuse/base_landuse'+str(index)+'.shp', driver='ESRI Shapefile', encoding='utf-8')
 
 def run_multi(shared_dict):
     # 读取基础数据
@@ -67,23 +67,20 @@ def run_multi(shared_dict):
         pool.starmap(do_one, inputs)    
 
 if __name__ == '__main__':
-    #lock = multiprocessing.Lock()
-    filepath = r"./base_data/landuse/"
+    filepath = r"../data/base_data/landuse/"
     if not os.path.exists(filepath):
         os.makedirs(filepath)
     with multiprocessing.Manager() as manager:
         shared_dict = manager.dict()
         run_multi(shared_dict)
 
-    result = gpd.read_file('./base_data/voronoi_gz.shp')[[area_id]]
+    result = gpd.read_file('../data/base_data/voronoi_gz.shp')[[area_id]]
     result = result.rename(columns={area_id: 'id'})
     landuse = gpd.read_file(poi_path+'landuse.shp')
     for land_name in list(set(landuse['Level1_cn'])):
-        df = gpd.read_file('./base_data/landuse/base_landuse'+str(land_name)+'.shp')
-        # del df['area']
+        df = gpd.read_file('../data/base_data/landuse/base_landuse'+str(land_name)+'.shp')
         del df['geometry']
         result = pd.merge(result,df)
-    # gpd_result.to_file('./base_data/base_landuse.shp', driver='ESRI Shapefile', encoding='utf-8')
     result = result.rename(columns={'id': area_id})
-    result.to_csv('./base_data/base_landuse.csv', index=False)
+    result.to_csv('../data/base_data/base_landuse.csv', index=False)
 

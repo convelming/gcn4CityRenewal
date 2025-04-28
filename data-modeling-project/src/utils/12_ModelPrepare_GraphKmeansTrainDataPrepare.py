@@ -10,10 +10,13 @@ import pickle
 from multiprocessing import Pool, Manager, Lock
 from functools import partial
 
-from src.subGraphSearh.heuristicSearch import heuristic_search
-from src.subGraphSearh.similarityCals import cal_graph_degree_distribution, cal_KL_divergence, cal_cluster_coe_diff, \
+from ....src.subGraphSearh.heuristicSearch import heuristic_search
+from ....src.subGraphSearh.similarityCals import cal_graph_degree_distribution, cal_KL_divergence, cal_cluster_coe_diff, \
     cal_shortest_path_length_ratio, cal_edge_similarity, \
     cal_total_weighted_similarity, cal_graph_cosine_similarity
+
+import sys
+sys.path.append("../path/to/src_parent_dir")
 from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_bi_dir_depth_info, \
     get_bi_avg_graph_depth, bidirectional_search
 

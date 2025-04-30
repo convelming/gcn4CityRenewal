@@ -54,8 +54,8 @@ def sum_feature(df_data, clus_col='o_id', feature_col='features'):
 def get_o_od(clu_id_o, clu_id_d, df_od , o_id_col = 'source_id', d_id_col = 'target_id',uv_col = 'car_uv'):
     """获取起点在clu_id_o中，终点在clu_id_d的OD量"""
     df_od_num = df_od[((df_od[o_id_col].isin(clu_id_o)) &
-                       (df_od[d_id_col].isin(clu_id_d)))
-    ]
+                       (df_od[d_id_col].isin(clu_id_d)))]
+    
     return (df_od_num[uv_col].sum())
 
 
@@ -154,12 +154,12 @@ def creat_input(gr, gdf_node, df_od_data, depth, central_point,
 file_lock = Lock()
 def read_file():
     # 每个进程独立加载数据，避免共享大数据
-    r_graph = ox.load_graphml('../data/base_data/guangzhou_drive_feature_node&edge.graphml') #加载网络
-    r_gdf_node = gpd.read_file("../data/base_data/guangzhou_drive_feature_node&edge.gpkg", layer='nodes') #加载节点属性
+    r_graph = ox.load_graphml('./src/data/base_data/guangzhou_drive_feature_node&edge.graphml') #加载网络
+    r_gdf_node = gpd.read_file("./src/data/base_data/guangzhou_drive_feature_node&edge.gpkg", layer='nodes') #加载节点属性
     r_gdf_node = r_gdf_node.to_crs('EPSG:4526')
     r_gdf_node['x'] = r_gdf_node.apply(lambda z: z.geometry.x, axis=1)
     r_gdf_node['y'] = r_gdf_node.apply(lambda z: z.geometry.y, axis=1)
-    r_df_od = pd.read_csv('../data/base_data/base_od.csv') #加载OD量
+    r_df_od = pd.read_csv('./src/data/base_data/base_od.csv') #加载OD量
     return r_graph, r_gdf_node, r_df_od
 
 def do_one(index, result_queue):
@@ -168,7 +168,7 @@ def do_one(index, result_queue):
         shared_graph, shared_gdf_node, shared_df_od = read_file()
         list_search_kernel = list()
         df_xy_kernel = pd.DataFrame()
-        while len(list_search_kernel) < 1000: #单次生成数量停止条件
+        while len(list_search_kernel) < 200: #单次生成数量停止条件
             random_osmid = random.choice(shared_gdf_node['osmid']) #随机搜索中心点
             random_depth = random.randint(4, 20)             #在4到20间随机搜索中心子图深度
             random_id = f"{int(random_osmid)}_{int(random_depth)}"
@@ -200,7 +200,6 @@ def result_writer(result_queue):
                     list_search = pickle.load(f)
             except FileNotFoundError:
                 pass
-
             try:
                 df_all_xy = pd.read_csv('./src/data/predict/graph_kmeans_input_data.csv')
             except FileNotFoundError:
@@ -218,9 +217,9 @@ def result_writer(result_queue):
             df_all_xy = pd.concat([df_all_xy, new_df]).drop_duplicates()
             # 写入文件
             with file_lock:
-                with open("../data/predict/list_search.pkl", "wb") as f:
+                with open("./src/data/predict/list_search.pkl", "wb") as f:
                     pickle.dump(list_search, f)
-                df_all_xy.to_csv('../data/predict/graph_kmeans_input_data.csv', index=False)
+                df_all_xy.to_csv('./src/data/predict/graph_kmeans_input_data.csv', index=False)
             print(f"Writer: Current total records: {len(df_all_xy)}")
         except Exception as e:
             print(f"Error in writer process: {str(e)}")
@@ -234,8 +233,8 @@ def run_multi():
     writer_pool = Pool(1)
     writer_pool.apply_async(result_writer, (result_queue,))
     # 启动工作进程
-    worker_pool = Pool(2)
-    for i in range(2):
+    worker_pool = Pool(20)
+    for i in range(20):
         worker_pool.apply_async(do_one, (i, result_queue))
     worker_pool.close()
     worker_pool.join()

@@ -134,7 +134,7 @@ def run_multi():
         sub_g_avg_depth=sub_g_avg_depth,
         num_processes=40
     )
-    results.to_csv('/src/subGraphSearh/Search_result/max_min_features.csv',index=False)
+    results.to_csv('./src/subGraphSearh/Search_result/max_min_features.csv',index=False)
 
 if __name__ == '__main__':
     run_multi()

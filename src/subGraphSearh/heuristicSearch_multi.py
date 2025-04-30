@@ -15,43 +15,6 @@ from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_
 from multiprocessing import Pool, Manager
 from functools import partial
 
-gr = ox.load_graphml('./src/data/base_data/guangzhou_drive_feature_node&edge.graphml')
-gdf_node = gpd.read_file('./src/data/base_data/guangzhou_drive_feature_node&edge.gpkg',layer='nodes')
-#建设大马路
-poly_coords = [(113.276099, 23.140708),
-                    (113.275919, 23.134086),
-                    (113.279790, 23.133837),
-                    (113.279790, 23.139342),
-                    (113.276099, 23.140708),]
-#镇龙                    
-# poly_coords = [(113.557801, 23.287852),
-# (113.555640, 23.284914),
-# (113.554069, 23.282053),
-# (113.556145, 23.279295),
-# (113.558951, 23.277980),
-# (113.564731, 23.277516),
-# (113.567201, 23.277233),
-# (113.570540, 23.277310),
-# (113.573907, 23.278264),
-# (113.579407, 23.279269),
-# (113.582381, 23.281847),
-# (113.579351, 23.284733),
-# (113.576713, 23.287053),
-# (113.579106, 23.288529),
-# (113.577815, 23.291158),
-# (113.574897, 23.289663),
-# (113.571810, 23.288735),
-# (113.568443, 23.287446),
-# (113.566703, 23.288684),
-# (113.563448, 23.287292),
-# (113.563055, 23.288529),
-# (113.557801, 23.287852),]
-
-G_sub = getSubGraphInPoly(gr, poly_coords)
-
-
-nodes_to_process =  list(gr.nodes)
-sub_g_avg_depth = get_bi_avg_graph_depth(G_sub, get_graph_central_node(G_sub))
 
 def sum_feature(df_data, clus_col='o_id', feature_col='features'):
     """将区域内的feature进行求和"""
@@ -131,25 +94,28 @@ def do_one_parallel(node, graph, target_subgraph, sub_g_avg_depth, central_nodes
     """
     适配后的工作函数，用于多进程环境
     """
-    # print(f'kernel_{node}_start')
     candidate_subgraph_node_list = bidirectional_search(graph, node, sub_g_avg_depth)
-
     # 使用manager.list的检查方式
-
     candidate_subgraph = graph.subgraph(candidate_subgraph_node_list).copy()
-    
     # 更新共享数据结构
     central_nodes.append(node)
     # visited_nodes.extend(candidate_subgraph_node_list)
-    
     tmp_similarity_score = cal_total_weighted_similarity(target_subgraph, candidate_subgraph)
     print(len(central_nodes))
-    
     # 将结果放入队列
     result_queue.put((node, tmp_similarity_score))
 
-
-
+gr = ox.load_graphml('./src/data/base_data/guangzhou_drive_feature_node&edge.graphml')
+gdf_node = gpd.read_file('./src/data/base_data/guangzhou_drive_feature_node&edge.gpkg',layer='nodes')
+#建设大马路
+poly_coords = [(113.276099, 23.140708),
+                    (113.275919, 23.134086),
+                    (113.279790, 23.133837),
+                    (113.279790, 23.139342),
+                    (113.276099, 23.140708),]
+G_sub = getSubGraphInPoly(gr, poly_coords)
+nodes_to_process =  list(gr.nodes)
+sub_g_avg_depth = get_bi_avg_graph_depth(G_sub, get_graph_central_node(G_sub))
 results = parallel_do_many(
     graph=gr,
     num_results = 40,
@@ -159,14 +125,7 @@ results = parallel_do_many(
     sub_g_avg_depth=sub_g_avg_depth,
     num_processes=60  
 )
-
 results.to_csv('/src/subGraphSearh/Search_result/max_min_features.csv',index=False)
-
-with open("./zl_results.pkl", "wb") as f:
-    pickle.dump(results, f)
-
-with open("./src/subGraphSearh/Search_result/zl_results.pkl", "rb") as f:
-    results = pickle.load(f)
 
 
 

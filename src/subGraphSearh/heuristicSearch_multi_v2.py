@@ -160,43 +160,13 @@ results = parallel_do_many(
     num_processes=60  
 )
 
-
+results.to_csv('/src/subGraphSearh/Search_result/max_min_features.csv',index=False)
 
 with open("./zl_results.pkl", "wb") as f:
     pickle.dump(results, f)
 
 with open("./src/subGraphSearh/Search_result/zl_results.pkl", "rb") as f:
     results = pickle.load(f)
-
-
-
-
-
-df_features_results = pd.DataFrame()
-top_results = sorted(results, key=lambda x: x[1], reverse=True)
-for rank, (node, score) in enumerate(top_results, 1):
-    judge_subgraph_node_list = bidirectional_search(gr,node,sub_g_avg_depth)
-    if any(tmp_subgraph_node_id in list(G_sub.nodes) for tmp_subgraph_node_id in judge_subgraph_node_list):
-        continue
-    else:
-        df_tmp_node_features = gdf_node[gdf_node['osmid'].isin(judge_subgraph_node_list)].copy() 
-        df_tmp_node_features['typed_id'] = rank
-        df_tmp_node_features = sum_feature(df_tmp_node_features, clus_col='typed_id', feature_col='features')
-        df_features_results = pd.concat([df_features_results,df_tmp_node_features])
-    if len(df_features_results) == 40:
-        break
-
-features_array = np.array(df_features_results['features'].tolist())
-# 计算每列的最大值、最小值和平均值
-max_values = features_array.max(axis=0)
-min_values = features_array.min(axis=0)
-mean_values = features_array.mean(axis=0)
-# 创建新的 DataFrame
-result_df = pd.DataFrame({
-    'type': ['max', 'min', 'mean'],
-    'features': [max_values.tolist(), min_values.tolist(), mean_values.tolist()]
-})
-
 
 
 

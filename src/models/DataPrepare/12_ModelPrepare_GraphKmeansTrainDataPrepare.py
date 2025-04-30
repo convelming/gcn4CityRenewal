@@ -196,13 +196,13 @@ def result_writer(result_queue):
         # 尝试加载已有数据
         with file_lock:
             try:
-                with open("../data/predict/list_search.pkl", "rb") as f:
+                with open("./src/data/predict/list_search.pkl", "rb") as f:
                     list_search = pickle.load(f)
             except FileNotFoundError:
                 pass
 
             try:
-                df_all_xy = pd.read_csv('../data/predict/graph_kmeans_input_data.csv')
+                df_all_xy = pd.read_csv('./src/data/predict/graph_kmeans_input_data.csv')
             except FileNotFoundError:
                 pass
     except Exception as e:

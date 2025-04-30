@@ -4,8 +4,6 @@ import os
 import geopandas as gpd
 import pandas as pd
 
-from src.subGraphSearh.heuristicSearch import heuristic_search
-
 from Lonlat_Tile import gaodedeg2num,gaodenum2deg
 from coordTransform import gcj02_to_wgs84
 warnings.filterwarnings("ignore")

@@ -65,7 +65,7 @@ def process_conv_num(conv_num, nodes, edges):
         t_data = gcn_features(df_nodes, df_edges, conv_num)
         df_nodes['features'] = [row.tolist() for row in t_data]
         df_nodes = df_nodes[['osmid', 'x', 'y', 'features']]
-        output_path = f'{models_floder}gcn_features/features_conv_{conv_num}.csv'
+        output_path = f'{models_floder}middle_data/gcn_features/features_conv_{conv_num}.csv'
         df_nodes.to_csv(output_path, index=False)
         print(f'Finished conv_num: {conv_num}')
     except Exception as e:
@@ -111,7 +111,7 @@ def run_multi():
     # 使用进程池
     with Pool(num_processes) as pool:
         # 为每个conv_num创建任务
-        tasks = [(i, nodes, edges) for i in range(20)]
+        tasks = [(i, nodes, edges) for i in range(1,21)]
 
         # 使用starmap传递多个参数
         pool.starmap(process_conv_num, tasks)

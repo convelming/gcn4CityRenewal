@@ -152,14 +152,14 @@ file_lock = Lock()
 def read_file(conv_num):
     # 每个进程独立加载数据，避免共享大数据
     if conv_num == 1:
-        r_gdf_node = gpd.read_file("./src/models/middle_data/guangzhou_drive_feature_node&edge.gpkg", layer='nodes') #加载节点属性
+        r_gdf_node = gpd.read_file(f'{middle_data_floder}guangzhou_drive_feature_node&edge.gpkg', layer='nodes') #加载节点属性
         r_gdf_node = r_gdf_node.to_crs('EPSG:4526')
         r_gdf_node['x'] = r_gdf_node.apply(lambda z: z.geometry.x, axis=1)
         r_gdf_node['y'] = r_gdf_node.apply(lambda z: z.geometry.y, axis=1)
     else:
-        r_gdf_node = pd.read_csv(f'./src/models/middle_data/gcn_features/features_conv_{conv_num}.csv')
-    r_graph = ox.load_graphml('./src/models/middle_data/guangzhou_drive_feature_node&edge.graphml') #加载网络
-    r_df_od = pd.read_csv('./src/models/middle_data/base_od.csv') #加载OD量
+        r_gdf_node = pd.read_csv(f'{middle_data_floder}gcn_features/features_conv_{conv_num}.csv')
+    r_graph = ox.load_graphml(f'{middle_data_floder}guangzhou_drive_feature_node&edge.graphml') #加载网络
+    r_df_od = pd.read_csv(f'{middle_data_floder}base_od.csv') #加载OD量
     return r_graph, r_gdf_node, r_df_od
 
 def do_one(index):
@@ -184,14 +184,12 @@ def run_multi():
     manager = Manager()
     # result_queue = manager.Queue()
     # 启动工作进程
-    worker_pool = Pool(20)
-    for i in range(20):
+    list_conv_num = [20]
+    worker_pool = Pool(len(list_conv_num))
+    for i in list_conv_num:
         worker_pool.apply_async(do_one, (i, ))
     worker_pool.close()
     worker_pool.join()
-
-
-
 
 if __name__ == '__main__':
     run_multi()    

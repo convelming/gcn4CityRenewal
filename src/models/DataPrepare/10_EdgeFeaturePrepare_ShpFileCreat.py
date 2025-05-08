@@ -3,8 +3,9 @@ import pandas as pd
 
 list_qu_name = ['th','yx','lw','by','hz','py','hp','ns','hd','zc']
 list_central = ['th','yx','lw','by','hz','py']
-congestion_edge_file_path = '../data/congestion_edge/osm_edge_qu/'
-congestion_result_file_path = '../data/congestion_edge/congestion_result/'
+middle_data_floder = './src/models/middle_data/'
+congestion_edge_file_path = middle_data_floder+'congestion_edge/osm_edge_qu/'
+congestion_result_file_path = middle_data_floder+'congestion_edge/congestion_result/'
 
 df_all = pd.DataFrame()
 for qu_name in list_qu_name:

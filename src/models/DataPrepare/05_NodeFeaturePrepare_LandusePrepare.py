@@ -6,15 +6,16 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 area_id = 'osmid'
-poi_path = '../data/base_gis/'
-folder_path = '../data/base_data/landuse/'
+poi_path = './src/models/base_data/'
+middle_data_floder = './src/models/middle_data/'
+
 # 检查文件夹是否存在
-if not os.path.exists(folder_path):
+if not os.path.exists(middle_data_floder+'landuse/'):
     # 如果文件夹不存在，则创建文件夹
-    os.makedirs(folder_path)
+    os.makedirs(middle_data_floder+'landuse/')
 
 def read_file(shared_dict):
-    gpd_fishnet = gpd.read_file('./base_data/voronoi_gz.shp')
+    gpd_fishnet = gpd.read_file(middle_data_floder+'voronoi_gz.shp')
     gpd_fishnet = gpd_fishnet.rename(columns={area_id: 'id'})
     landuse = gpd.read_file(poi_path+'landuse.shp')
     landuse = landuse.to_crs(gpd_fishnet.crs)
@@ -52,7 +53,7 @@ def do_one(index, shared_dict):
     df_fishnet = df_fishnet.rename(columns={'居住用地': 'resident'})
     gpd_fishnet = gpd.GeoDataFrame(df_fishnet, geometry=df_fishnet.geometry)
     gpd_fishnet.crs= gpd_cp.crs 
-    gpd_fishnet.to_file('../data/base_data/landuse/base_landuse'+str(index)+'.shp', driver='ESRI Shapefile', encoding='utf-8')
+    gpd_fishnet.to_file(middle_data_floder+'landuse/base_landuse'+str(index)+'.shp', driver='ESRI Shapefile', encoding='utf-8')
 
 def run_multi(shared_dict):
     # 读取基础数据
@@ -67,20 +68,20 @@ def run_multi(shared_dict):
         pool.starmap(do_one, inputs)    
 
 if __name__ == '__main__':
-    filepath = r"../data/base_data/landuse/"
+    filepath = middle_data_floder+'landuse/'
     if not os.path.exists(filepath):
         os.makedirs(filepath)
     with multiprocessing.Manager() as manager:
         shared_dict = manager.dict()
         run_multi(shared_dict)
 
-    result = gpd.read_file('../data/base_data/voronoi_gz.shp')[[area_id]]
+    result = gpd.read_file(middle_data_floder+'voronoi_gz.shp')[[area_id]]
     result = result.rename(columns={area_id: 'id'})
     landuse = gpd.read_file(poi_path+'landuse.shp')
     for land_name in list(set(landuse['Level1_cn'])):
-        df = gpd.read_file('../data/base_data/landuse/base_landuse'+str(land_name)+'.shp')
+        df = gpd.read_file(middle_data_floder+'landuse/base_landuse'+str(land_name)+'.shp')
         del df['geometry']
         result = pd.merge(result,df)
     result = result.rename(columns={'id': area_id})
-    result.to_csv('../data/base_data/base_landuse.csv', index=False)
+    result.to_csv(middle_data_floder+'base_landuse.csv', index=False)
 

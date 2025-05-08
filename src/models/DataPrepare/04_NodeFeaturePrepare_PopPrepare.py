@@ -4,10 +4,11 @@ import geopandas as gpd
 import pandas as pd
 
 warnings.filterwarnings("ignore")
-poi_path = '../data/base_gis/'
+poi_path = './src/models/base_data/'
+middle_data_floder = './src/models/middle_data/'
 area_id = 'osmid'
 
-gpd_fishnet = gpd.read_file('../data/base_data/voronoi_gz.shp')
+gpd_fishnet = gpd.read_file(middle_data_floder+'voronoi_gz.shp')
 
 gpd_fishnet['area'] = gpd_fishnet.area
 gpd_fishnet = gpd_fishnet.rename(columns={area_id: 'id'})
@@ -43,5 +44,5 @@ df_area['a_总人'] = df_area['a_总人']*df_area['rate']
 df_area= df_area[['pointid','a_总人']]
 df_area = df_area.rename(columns={'pointid': 'id'})
 df_area = df_area.rename(columns={'id': area_id})
-df_area.to_csv('../data/base_data/base_pop.csv',index=False)
+df_area.to_csv(middle_data_floder+'base_pop.csv',index=False)
 

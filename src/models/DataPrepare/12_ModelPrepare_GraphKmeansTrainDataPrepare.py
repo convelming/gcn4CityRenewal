@@ -21,7 +21,8 @@ from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_
 
 from sklearn.cluster import KMeans
 
-
+middle_data_floder = './src/models/middle_data/'
+TrainData_floder = './src/models/TrainData/'
 def cluster_dis(dis):
     """每5km的区域进行分类"""
     if dis <= 5000:
@@ -154,12 +155,12 @@ def creat_input(gr, gdf_node, df_od_data, depth, central_point,
 file_lock = Lock()
 def read_file():
     # 每个进程独立加载数据，避免共享大数据
-    r_graph = ox.load_graphml('./src/data/base_data/guangzhou_drive_feature_node&edge.graphml') #加载网络
-    r_gdf_node = gpd.read_file("./src/data/base_data/guangzhou_drive_feature_node&edge.gpkg", layer='nodes') #加载节点属性
+    r_graph = ox.load_graphml(middle_data_floder+'guangzhou_drive_feature_node&edge.graphml') #加载网络
+    r_gdf_node = gpd.read_file(middle_data_floder+'guangzhou_drive_feature_node&edge.gpkg', layer='nodes') #加载节点属性
     r_gdf_node = r_gdf_node.to_crs('EPSG:4526')
     r_gdf_node['x'] = r_gdf_node.apply(lambda z: z.geometry.x, axis=1)
     r_gdf_node['y'] = r_gdf_node.apply(lambda z: z.geometry.y, axis=1)
-    r_df_od = pd.read_csv('./src/data/base_data/base_od.csv') #加载OD量
+    r_df_od = pd.read_csv(middle_data_floder+'base_od.csv') #加载OD量
     return r_graph, r_gdf_node, r_df_od
 
 def do_one(index, result_queue):
@@ -196,12 +197,12 @@ def result_writer(result_queue):
         # 尝试加载已有数据
         with file_lock:
             try:
-                with open("./src/data/predict/list_search.pkl", "rb") as f:
+                with open(TrainData_floder+'list_search.pkl', "rb") as f:
                     list_search = pickle.load(f)
             except FileNotFoundError:
                 pass
             try:
-                df_all_xy = pd.read_csv('./src/data/predict/graph_kmeans_input_data.csv')
+                df_all_xy = pd.read_csv(TrainData_floder+'graph_kmeans_input_data.csv')
             except FileNotFoundError:
                 pass
     except Exception as e:
@@ -217,9 +218,9 @@ def result_writer(result_queue):
             df_all_xy = pd.concat([df_all_xy, new_df]).drop_duplicates()
             # 写入文件
             with file_lock:
-                with open("./src/data/predict/list_search.pkl", "wb") as f:
+                with open(TrainData_floder+'list_search.pkl', "wb") as f:
                     pickle.dump(list_search, f)
-                df_all_xy.to_csv('./src/data/predict/graph_kmeans_input_data.csv', index=False)
+                df_all_xy.to_csv(TrainData_floder+'graph_kmeans_input_data.csv', index=False)
             print(f"Writer: Current total records: {len(df_all_xy)}")
         except Exception as e:
             print(f"Error in writer process: {str(e)}")

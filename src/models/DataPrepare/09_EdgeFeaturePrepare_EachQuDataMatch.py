@@ -13,6 +13,7 @@ from skimage import io,data
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 Image.MAX_IMAGE_PIXELS = None
 #颜色状态判断4颜色
+middle_data_floder = './src/models/middle_data/'
 def color_judge(r,g,b):
     if ((r>=180)&(g<=60)&(b<=60)):
         color = 3
@@ -130,8 +131,8 @@ def status_add(img,year,month,day,hour,minute,df_copy):
 
 list_qu_name = ['th','yx','lw','by','hz','py','hp','ns','hd','zc']
 list_central = ['th','yx','lw','by','hz','py']
-congestion_edge_file_path = '../data/congestion_edge/osm_edge_qu/'
-congestion_result_file_path = '../data/congestion_edge/congestion_result/'
+congestion_edge_file_path = middle_data_floder+'congestion_edge/osm_edge_qu/'
+congestion_result_file_path = middle_data_floder+'congestion_edge/congestion_result/'
 
 for qu_name in list_qu_name:
     for hour_num in range(24):

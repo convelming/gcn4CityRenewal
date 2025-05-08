@@ -4,8 +4,9 @@ import warnings
 warnings.filterwarnings("ignore")
 
 area_id = 'osmid'
+middle_data_floder = './src/models/middle_data/'
 
-gpd_vor = gpd.read_file('../data/base_data/voronoi_gz.shp')
+gpd_vor = gpd.read_file(middle_data_floder+'voronoi_gz.shp')
 def count_points_in_polygons(gpd_points,gpd_polygons,polygon_col,new_col_name):
     gpd_points = gpd_points[['geometry']].drop_duplicates()
     gpd_points = gpd_points.to_crs(gpd_polygons.crs)
@@ -23,7 +24,7 @@ def count_number_in_polygons(gpd_points,gpd_polygons,polygon_col,cal_num_col,new
     df_vc.columns = ['fishid',new_col_name]
     return(df_vc)
 
-poi_path = '../data/base_gis/'
+poi_path = './src/models/base_data/'
 gpd_fishnet = gpd_vor.copy()
 gpd_fishnet = gpd_fishnet.rename(columns={area_id: 'id'})
 df_fishnet = pd.DataFrame()
@@ -58,5 +59,5 @@ df_fishnet = pd.merge(df_fishnet,df_count,how='left',on='fishid')
 print('poi_finish')
 df_fishnet = df_fishnet.rename(columns={'fishid':'id'})
 df_fishnet = df_fishnet.rename(columns={'id': area_id})
-df_fishnet.to_csv('../data/base_data/base_poi.csv',index=False)
+df_fishnet.to_csv(middle_data_floder+'base_poi.csv',index=False)
 

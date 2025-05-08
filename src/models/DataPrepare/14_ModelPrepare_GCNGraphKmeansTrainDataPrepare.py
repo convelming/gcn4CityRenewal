@@ -15,6 +15,8 @@ from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_
 
 from sklearn.cluster import KMeans
 
+TrainData_floder = './src/models/TrainData/'
+middle_data_floder = './src/models/middle_data/'
 
 def str_to_list(df,col_name):
     if type(df[col_name].values[0]) != list:
@@ -160,117 +162,36 @@ def read_file(conv_num):
     r_df_od = pd.read_csv('./src/models/middle_data/base_od.csv') #加载OD量
     return r_graph, r_gdf_node, r_df_od
 
-def do_one(index, result_queue, conv_num, stop_event):
+def do_one(index):
     print(f'kernel_{index}_start')
-    try:
-        shared_graph, shared_gdf_node, shared_df_od = read_file(conv_num)
-        list_search_kernel = list()
-        df_xy_kernel = pd.DataFrame()
-        while not stop_event.is_set(): #单次生成数量停止条件
-            random_osmid = random.choice(shared_gdf_node['osmid']) #随机搜索中心点
-            random_depth = random.randint(4, 20)             #在4到20间随机搜索中心子图深度
-            random_id = f"{int(random_osmid)}_{int(random_depth)}"
-            if random_id not in list_search_kernel: #判断该中心点及其深度是否搜索过
-                df_xy = creat_input(shared_graph, shared_gdf_node,
-                                    shared_df_od, random_depth, random_osmid) #创建训练样本
-                df_xy_kernel = pd.concat([df_xy_kernel, df_xy])#合并样本
-                list_search_kernel.append(random_id)
-                # 将结果放入队列而不是直接写文件
-                result_queue.put((list_search_kernel.copy(), df_xy_kernel.copy()))
-                df_xy_kernel = pd.DataFrame()  # 清空临时DataFrame
-                if stop_event.is_set():
-                    break
-        # 处理剩余未提交的结果
-        if not df_xy_kernel.empty and not stop_event.is_set():
-            result_queue.put((list_search_kernel, df_xy_kernel))
-    except Exception as e:
-        print(f"Process {index} failed: {str(e)}")
+    shared_graph, shared_gdf_node, shared_df_od = read_file(index)
+    list_search_kernel = list()
+    df_xy_kernel = pd.DataFrame()
+    while len(df_xy_kernel) < 20_0000: #单次生成数量停止条件
+        random_osmid = random.choice(shared_gdf_node['osmid']) #随机搜索中心点
+        random_depth = random.randint(4, 20)             #在4到20间随机搜索中心子图深度
+        random_id = f"{int(random_osmid)}_{int(random_depth)}"
+        if random_id not in list_search_kernel: #判断该中心点及其深度是否搜索过
+            df_xy = creat_input(shared_graph, shared_gdf_node,
+                                shared_df_od, random_depth, random_osmid) #创建训练样本
+            df_xy_kernel = pd.concat([df_xy_kernel, df_xy])#合并样本
+            list_search_kernel.append(random_id)
+            print(f'kernel_{index}_len_{len(df_xy_kernel)}')
+    df_xy_kernel.to_csv(f'{TrainData_floder}graph_kmeans_input_data_{index}.csv', index=False)
 
-
-def result_writer(result_queue, conv_num, stop_event):
-    """专门负责写文件的进程"""
-    list_search = []
-    df_all_xy = pd.DataFrame()
-    max_rows = 20_0000    
-    try:
-        # 尝试加载已有数据
-        with file_lock:
-            try:
-                with open("./src/models/TrainData/list_search_"+str(conv_num)+".pkl", "rb") as f:
-                    list_search = pickle.load(f)
-            except FileNotFoundError:
-                pass
-            try:
-                df_all_xy = pd.read_csv('./src/models/TrainData/graph_kmeans_input_data_'+str(conv_num)+'.csv')
-                if len(df_all_xy) >= max_rows:
-                    print(f"Reached max rows ({max_rows}), terminating all workers.")
-                    stop_event.set()  # Signal all workers to stop
-            except FileNotFoundError:
-                pass
-    except Exception as e:
-        print(f"Error loading existing data: {str(e)}")    
-    while not stop_event.is_set():
-        try:
-            # Add timeout to prevent hanging
-            try:
-                new_list, new_df = result_queue.get(timeout=5)
-                if new_list == "DONE":
-                    break                    
-                # 合并新数据
-                list_search = list(set(list_search + new_list))
-                new_df['input_x'] = new_df['input_x'].apply(str)
-                df_all_xy = pd.concat([df_all_xy, new_df]).drop_duplicates()               
-                # 写入文件
-                with file_lock:
-                    with open("./src/models/TrainData/list_search_"+str(conv_num)+".pkl", "wb") as f:
-                        pickle.dump(list_search, f)
-                    df_all_xy.to_csv('./src/models/TrainData/graph_kmeans_input_data_'+str(conv_num)+'.csv', index=False)
-                
-                print(f"Writer:GCN {conv_num} Current total records: {len(df_all_xy)}")                
-                # Check if we've reached max rows
-                if len(df_all_xy) >= max_rows:
-                    print(f"Reached max rows ({max_rows}), terminating all workers.")
-                    stop_event.set()
-                    break                   
-            except Exception as e:  # Queue timeout or other error
-                if stop_event.is_set():
-                    break
-                continue                
-        except Exception as e:
-            print(f"Error in writer process: {str(e)}")
-            if stop_event.is_set():
-                break
-
-
-def run_multi(conv_num):
+def run_multi():
     # 使用队列收集结果
     manager = Manager()
-    result_queue = manager.Queue()
-    stop_event = manager.Event()
-    # 启动写入进程
-    writer_pool = Pool(1)
-    writer_pool.apply_async(result_writer, (result_queue,conv_num,stop_event))
+    # result_queue = manager.Queue()
     # 启动工作进程
     worker_pool = Pool(20)
-    workers = []
     for i in range(20):
-        workers.append(worker_pool.apply_async(do_one, (i, result_queue,conv_num,stop_event)))
+        worker_pool.apply_async(do_one, (i, ))
     worker_pool.close()
     worker_pool.join()
-    stop_event.set()
-    # 通知写入进程结束
-    writer_pool.close()
-    writer_pool.join()
-    # Clean up any remaining items in queue
-    while not result_queue.empty():
-        try:
-            result_queue.get_nowait()
-        except:
-            break
-    return
+
+
+
 
 if __name__ == '__main__':
-    for conv_num in range(1, 20):
-        print(f"\n=== Processing conv_num: {conv_num} ===")
-        run_multi(conv_num)
-        print(f"Finished processing conv_num: {conv_num}, moving to next...")
+    run_multi()    

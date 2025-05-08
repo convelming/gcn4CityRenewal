@@ -12,7 +12,7 @@ from torch_geometric.utils import add_self_loops
 import torch.nn as nn
 from multiprocessing import Pool, cpu_count
 
-
+models_floder = './src/models/'
 class DynamicGCN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, conv_num=3):
         super().__init__()
@@ -47,8 +47,8 @@ def str_to_list(df,col_name):
 
 def load_data():
     """集中加载数据，避免重复I/O"""
-    nodes = gpd.read_file("./src/models/middle_data/guangzhou_drive_feature_node&edge.gpkg", layer='nodes')
-    edges = gpd.read_file("./src/models/middle_data/guangzhou_drive_feature_node&edge.gpkg", layer='edges')
+    nodes = gpd.read_file(models_floder+'middle_data/guangzhou_drive_feature_node&edge.gpkg', layer='nodes')
+    edges = gpd.read_file(models_floder+'middle_data/guangzhou_drive_feature_node&edge.gpkg', layer='edges')
     nodes = nodes.to_crs('EPSG:4526')
     nodes['x'] = nodes.geometry.x
     nodes['y'] = nodes.geometry.y
@@ -65,7 +65,7 @@ def process_conv_num(conv_num, nodes, edges):
         t_data = gcn_features(df_nodes, df_edges, conv_num)
         df_nodes['features'] = [row.tolist() for row in t_data]
         df_nodes = df_nodes[['osmid', 'x', 'y', 'features']]
-        output_path = f'./src/models/middle_data/gcn_features/features_conv_{conv_num}.csv'
+        output_path = f'{models_floder}gcn_features/features_conv_{conv_num}.csv'
         df_nodes.to_csv(output_path, index=False)
         print(f'Finished conv_num: {conv_num}')
     except Exception as e:
@@ -87,10 +87,10 @@ def gcn_features(df_nodes,df_near,model_conv_num,nodeID_col='osmid',nodeFeatures
     data = Data(x=x, edge_index=edge_index)
     try:
         model_layer = DynamicGCN(input_dim=20, hidden_dim=16, output_dim=20, conv_num=model_conv_num)
-        model_layer.load_state_dict(torch.load(f'./src/models/weights/gcn_weights_{model_conv_num}.pth'))
+        model_layer.load_state_dict(torch.load(f'{models_floder}weights/gcn_weights_{model_conv_num}.pth'))
     except:
         model_layer = DynamicGCN(input_dim=20, hidden_dim=16, output_dim=20, conv_num=model_conv_num)
-        torch.save(model_layer.state_dict(),f'./src/models/weights/gcn_weights_{model_conv_num}.pth')
+        torch.save(model_layer.state_dict(),f'{models_floder}weights/gcn_weights_{model_conv_num}.pth')
     model_layer.eval()
     with torch.no_grad():
         return model_layer(data).numpy()
@@ -101,8 +101,8 @@ def run_multi():
     nodes, edges = load_data()
 
     # 创建输出目录
-    os.makedirs('./src/models/middle_data/gcn_features', exist_ok=True)
-    os.makedirs('./src/models/weights', exist_ok=True)
+    os.makedirs(f'{models_floder}middle_data/gcn_features', exist_ok=True)
+    os.makedirs(f'{models_floder}weights', exist_ok=True)
 
     # 根据CPU核心数设置进程数
     num_processes = min(20, cpu_count())

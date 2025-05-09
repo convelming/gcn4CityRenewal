@@ -83,5 +83,6 @@ if __name__ == '__main__':
         del df['geometry']
         result = pd.merge(result,df)
     result = result.rename(columns={'id': area_id})
+    result = result[[area_id,'traffic','public','business','resident','industry']]
     result.to_csv(middle_data_floder+'base_landuse.csv', index=False)
 

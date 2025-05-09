@@ -1,73 +1,16 @@
-import ast
+
 import pandas as pd
 import numpy as np
 import ast
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
-import matplotlib.pyplot as plt
-import geopandas as gpd
-import random
-import networkx as nx
-import osmnx as ox
-import math
-from src.subGraphSearh.heuristicSearch import heuristic_search
-from src.subGraphSearh.similarityCals import cal_graph_degree_distribution, cal_KL_divergence, cal_cluster_coe_diff, \
-    cal_shortest_path_length_ratio, cal_edge_similarity, \
-    cal_total_weighted_similarity, cal_graph_cosine_similarity
-from src.utils.graphUtils import getSubGraphInPoly, get_graph_central_node, get_bi_dir_depth_info, \
-    get_bi_avg_graph_depth, bidirectional_search
-def cluster_dis(dis):
-    if dis<=5000:
-        return(1)
-    elif dis<=10000:
-        return(2)
-    elif dis<=15000:
-        return(3)
-    elif dis<=20000:
-        return(4)
-    elif dis<=30000:
-        return(5)
-    else:
-        return(6)
-def sum_feature(df_data,clus_col,feature_col):
-    df_feature = df_data.copy()
-    if type(df_feature[feature_col].values[0]) != list:
-        df_feature[feature_col] = df_feature[feature_col].apply(ast.literal_eval)
-    df_sum = (
-        df_feature.groupby(clus_col)[feature_col]
-        .apply(lambda x: pd.DataFrame(x.tolist()).sum().tolist())
-        .reset_index(name=feature_col)
-    )
-    return(df_sum)
-def clu_osmid(df_data,clus_name):
-    df = df_data[df_data['area_clus']==clus_name]
-    return(str(list(df['osmid'])))
-def fu_to_zero(value_data):
-    if value_data<0:
-        return(0)
-    else:
-        return(value_data)
-def calculate_rmse(y_true, y_pred):
-    n = len(y_true)
-    squared_errors = [(true - pred) ** 2 for true, pred in zip(y_true, y_pred)]
-    mse = sum(squared_errors) / n  # 均方误差（MSE）
-    rmse = math.sqrt(mse)          # 开平方根
-    return rmse
-def calculate_std_dev(data):
-    n = len(data)
-    mean = sum(data) / n
-    squared_diff = [(x - mean) ** 2 for x in data]
-    variance = sum(squared_diff) / n  # 总体方差
-    std_dev = math.sqrt(variance)     # 标准差
-    return std_dev
-def calculate_cpc(y_true, y_pred):
-    """计算CPC指标"""
-    min_sum = np.sum(np.minimum(y_true, y_pred))
-    total_sum = np.sum(y_true) + np.sum(y_pred)
-    cpc = (2 * min_sum) / total_sum if total_sum != 0 else 0
-    return cpc
 
+from sklearn.cluster import KMeans
+import math
+
+from src.models.DataPrepare.InputPrepareUtils import cluster_dis,sum_feature,clu_osmid,creat_input
+from src.models.DataPrepare.ModelPredictUtils import fu_to_zero,calculate_rmse,calculate_std_dev,calculate_cpc,prepare_data,train_xgboost
 
 def creat_input(gdf_node, df_od_data, candidate_subgraph_node_list):
     gpd_sub = gdf_node[gdf_node['osmid'].isin(candidate_subgraph_node_list)].reset_index(drop=True)

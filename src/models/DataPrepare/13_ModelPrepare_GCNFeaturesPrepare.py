@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from torch_geometric.utils import add_self_loops
 import torch.nn as nn
 from multiprocessing import Pool, cpu_count
+from src.models.DataPrepare.InputPrepareUtils import str_to_list
 
 models_floder = './src/models/'
 class DynamicGCN(nn.Module):
@@ -39,10 +40,6 @@ class DynamicGCN(nn.Module):
         # 最后一层无激活函数
         x = self.convs[-1](x, edge_index)
         return x
-def str_to_list(df,col_name):
-    if type(df[col_name].values[0]) != list:
-        df[col_name] =  df[col_name].apply(ast.literal_eval)
-    return(df)
 
 
 def load_data():

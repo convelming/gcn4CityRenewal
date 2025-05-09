@@ -2,7 +2,6 @@ import geopandas as gpd
 import pandas as pd
 import os
 
-
 def consolidate_dataframe(df):
     # 定义需要求均值的列
     cols_to_mean = [f'{i}' for i in range(24)]

@@ -1,9 +1,7 @@
-import multiprocessing
 import warnings
 import os
 import geopandas as gpd
 import pandas as pd
-
 from Lonlat_Tile import gaodedeg2num,gaodenum2deg
 from coordTransform import gcj02_to_wgs84
 warnings.filterwarnings("ignore")
